@@ -1,0 +1,3 @@
+(executables
+  (names single)
+  (libraries lmdb))
