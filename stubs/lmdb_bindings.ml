@@ -103,7 +103,7 @@ module C (F : Cstubs.FOREIGN) = struct
 
   let mdb_strerror =
     foreign "mdb_strerror" (int (* err *)
-                           @-> returning (ptr char))
+                           @-> returning string)
   ;;
 
   let mdb_env_create =
@@ -114,7 +114,7 @@ module C (F : Cstubs.FOREIGN) = struct
   let mdb_env_open =
     foreign "mdb_env_open"
       ( ptr Env.t (* env *)
-      @-> ptr char (* path *)
+      @-> string (* path *)
       @-> uint (* flags *)
       @-> Mode.t (* mode *)
       @-> or_error )
@@ -123,7 +123,7 @@ module C (F : Cstubs.FOREIGN) = struct
   let mdb_env_copy =
     foreign "mdb_env_copy"
       (ptr Env.t (* env *)
-     @-> ptr char (* path *)
+     @-> string (* path *)
      @-> or_error)
   ;;
 
@@ -134,14 +134,14 @@ module C (F : Cstubs.FOREIGN) = struct
   let mdb_env_stat =
     foreign "mdb_env_stat"
       (ptr Env.t (* env *)
-     @-> ptr Stat.t (* path *)
+     @-> ptr Stat.t
      @-> or_error)
   ;;
 
   let mdb_env_info =
     foreign "mdb_env_info"
       (ptr Env.t (* env *)
-     @-> ptr Envinfo.t (* path *)
+     @-> ptr Envinfo.t
      @-> or_error)
   ;;
 
