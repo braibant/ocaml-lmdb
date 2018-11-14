@@ -1,0 +1,17 @@
+(library
+  (name lmdb)
+  (c_names lmdb_stubs)
+  (c_library_flags (-llmdb))
+  (no_dynlink)
+  (modes native)
+  (libraries bigarray ctypes.foreign ctypes.stubs ctypes))
+
+(rule
+  (targets lmdb_bindings.ml)
+  (deps    ../stubs/lmdb_bindings.ml)
+  (action  (copy ../stubs/lmdb_bindings.ml lmdb_bindings.ml)))
+
+(rule
+  (targets lmdb_stubs.c lmdb_generated.ml)
+  (deps    (:lmdbgen ../stubs/lmdb_gen.exe))
+  (action  (run %{lmdbgen})))
