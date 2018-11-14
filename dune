@@ -1,0 +1,5 @@
+(library
+ (name tlog)
+ (inline_tests)
+ (libraries base core ctypes ctypes.foreign)
+ (preprocess (pps ppx_expect ppx_custom_printf)))
