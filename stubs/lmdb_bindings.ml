@@ -52,7 +52,9 @@ module C (F : Cstubs.FOREIGN) = struct
 
   module Env = struct
     type phantom
+
     type t = phantom structure
+
     let t : phantom structure typ = typedef (structure "MDB_env") "MDB_env"
 
     let open_ =
@@ -85,9 +87,8 @@ module C (F : Cstubs.FOREIGN) = struct
                             @-> int (* force *)
                             @-> or_error)
 
-    let close =
-      foreign "mdb_env_close" (ptr t (* env *)
-                             @-> returning void)
+    let close = foreign "mdb_env_close" (ptr t (* env *)
+                                       @-> returning void)
 
     (* mdb_env_set_flags *)
     (* mdb_env_get_flags *)
@@ -120,9 +121,9 @@ module C (F : Cstubs.FOREIGN) = struct
 
     (* mdb_env_set_userctx *)
     (* mdb_env_get_userctx *)
-
+    
     (* typedef void MDB_assert_func(MDB_env *env, const char *msg) *)
-
+    
     (* mdb_env_set_assert *)
   end
 
