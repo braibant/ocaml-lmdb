@@ -1,3 +1,3 @@
 open! Lmdb
 
-let () = Printf.printf "42\n";;
+let () = Printf.printf "42\n"

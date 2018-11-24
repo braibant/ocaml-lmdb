@@ -3,47 +3,13 @@ open Ctypes
 module C (F : Cstubs.FOREIGN) = struct
   open! F
 
+  let or_error = returning int
+
   (* target version 0.9.22 *)
+  module Mode = struct
+    type t = int
 
-  module Env : sig type t val t : t typ end =  struct
-    type t = unit structure
-
-    let t = typedef (structure "MDB_env") "MDB_env"
-  end
-
-  module Txn : sig type t val t : t typ end =  struct
-    type t = unit structure
-
-    let t = typedef (structure "MDB_txn") "MDB_txn"
-  end
-
-
-  module Dbi : sig
-    type t = Unsigned.UInt.t
-
-    val t : t typ
-  end = struct
-    type t = Unsigned.UInt.t
-
-    let t = typedef uint "MDB_dbi"
-  end
-
-  module Cursor : sig type t val t : t typ end =  struct
-    type t = unit structure
-
-    let t = typedef (structure "MDB_cursor") "MDB_cursor"
-  end
-
-  module Val = struct
-    type t
-
-    let t : t structure typ = structure "MDB_val"
-
-    let mv_size = field t "mv_size" size_t
-
-    let mv_data = field t "mv_data" (ptr void)
-
-    let _ = seal t
+    let t : t typ = int
   end
 
   module Stat = struct
@@ -69,7 +35,7 @@ module C (F : Cstubs.FOREIGN) = struct
   module Envinfo = struct
     type t
 
-    let t : t structure  typ = structure "MDB_envinfo"
+    let t : t structure typ = structure "MDB_envinfo"
 
     let me_mapaddr = field t "me_mapaddr" (ptr void)
 
@@ -84,13 +50,123 @@ module C (F : Cstubs.FOREIGN) = struct
     let me_numreaders = field t "me_numreaders" uint
   end
 
-  module Mode = struct
-    type t = int
+  module Env = struct
+    type phantom
+    type t = phantom structure
+    let t : phantom structure typ = typedef (structure "MDB_env") "MDB_env"
 
-    let t : t typ = int
+    let open_ =
+      foreign "mdb_env_open"
+        ( ptr t (* env *)
+        @-> string (* path *)
+        @-> uint (* flags *)
+        @-> Mode.t (* mode *)
+        @-> or_error )
+
+    let copy =
+      foreign "mdb_env_copy" (ptr t (* env *)
+                            @-> string (* path *)
+                            @-> or_error)
+
+    (* mdb_env_copyfd *)
+    (* mdb_env_copy2 *)
+    (* mdb_env_copyfd2 *)
+
+    let stat =
+      foreign "mdb_env_stat" (ptr t (* env *)
+                            @-> ptr Stat.t @-> or_error)
+
+    let info =
+      foreign "mdb_env_info" (ptr t (* env *)
+                            @-> ptr Envinfo.t @-> or_error)
+
+    let sync =
+      foreign "mdb_env_sync" (ptr t (* env *)
+                            @-> int (* force *)
+                            @-> or_error)
+
+    let close =
+      foreign "mdb_env_close" (ptr t (* env *)
+                             @-> returning void)
+
+    (* mdb_env_set_flags *)
+    (* mdb_env_get_flags *)
+    (* mdb_env_get_path *)
+    (* mdb_env_get_ *)
+
+    let set_mapsize =
+      foreign "mdb_env_set_mapsize"
+        (ptr t (* env *)
+       @-> size_t (* size *)
+       @-> or_error)
+
+    let set_maxreaders =
+      foreign "mdb_env_set_maxreaders"
+        (ptr t (* env *)
+       @-> uint (* readers*)
+       @-> or_error)
+
+    let get_maxreaders =
+      foreign "mdb_env_get_maxreaders"
+        (ptr t (* env *)
+       @-> ptr uint (* readers*)
+       @-> or_error)
+
+    (* mdb_env_set_maxdbs *)
+
+    let get_maxkeysize =
+      foreign "mdb_env_get_maxkeysize" (ptr t (* env *)
+                                      @-> returning int)
+
+    (* mdb_env_set_userctx *)
+    (* mdb_env_get_userctx *)
+
+    (* typedef void MDB_assert_func(MDB_env *env, const char *msg) *)
+
+    (* mdb_env_set_assert *)
   end
 
-  let or_error = returning int
+  module Txn : sig
+    type t
+
+    val t : t typ
+  end = struct
+    type t = unit structure
+
+    let t = typedef (structure "MDB_txn") "MDB_txn"
+  end
+
+  module Dbi : sig
+    type t = Unsigned.UInt.t
+
+    val t : t typ
+  end = struct
+    type t = Unsigned.UInt.t
+
+    let t = typedef uint "MDB_dbi"
+  end
+
+  module Cursor : sig
+    type t
+
+    val t : t typ
+  end = struct
+    type t = unit structure
+
+    let t = typedef (structure "MDB_cursor") "MDB_cursor"
+  end
+
+  module Val = struct
+    type t
+
+    let t : t structure typ = structure "MDB_val"
+
+    let mv_size = field t "mv_size" size_t
+
+    let mv_data = field t "mv_data" (ptr void)
+
+    let _ = seal t
+  end
 
   let mdb_version =
     foreign "mdb_version"
@@ -99,102 +175,13 @@ module C (F : Cstubs.FOREIGN) = struct
       @-> ptr int
       (* patch *)
       @-> returning (ptr char) )
-  ;;
 
-  let mdb_strerror =
-    foreign "mdb_strerror" (int (* err *)
-                           @-> returning string)
-  ;;
+  let mdb_strerror = foreign "mdb_strerror" (int (* err *)
+                                           @-> returning string)
 
   let mdb_env_create =
     foreign "mdb_env_create" (ptr (ptr Env.t) (* env *)
                              @-> or_error)
-  ;;
-
-  let mdb_env_open =
-    foreign "mdb_env_open"
-      ( ptr Env.t (* env *)
-      @-> string (* path *)
-      @-> uint (* flags *)
-      @-> Mode.t (* mode *)
-      @-> or_error )
-  ;;
-
-  let mdb_env_copy =
-    foreign "mdb_env_copy"
-      (ptr Env.t (* env *)
-     @-> string (* path *)
-     @-> or_error)
-  ;;
-
-  (* mdb_env_copyfd *)
-  (* mdb_env_copy2 *)
-  (* mdb_env_copyfd2 *)
-
-  let mdb_env_stat =
-    foreign "mdb_env_stat"
-      (ptr Env.t (* env *)
-     @-> ptr Stat.t
-     @-> or_error)
-  ;;
-
-  let mdb_env_info =
-    foreign "mdb_env_info"
-      (ptr Env.t (* env *)
-     @-> ptr Envinfo.t
-     @-> or_error)
-  ;;
-
-  let mdb_env_sync =
-    foreign "mdb_env_sync" (ptr Env.t (* env *)
-                          @-> int (* force *)
-                          @-> or_error)
-  ;;
-
-  let mdb_env_close =
-    foreign "mdb_env_close" (ptr Env.t (* env *)
-                           @-> returning void)
-  ;;
-
-  (* mdb_env_set_flags *)
-  (* mdb_env_get_flags *)
-  (* mdb_env_get_path *)
-  (* mdb_env_get_ *)
-
-  let mdb_env_set_mapsize =
-    foreign "mdb_env_set_mapsize"
-      (ptr Env.t (* env *)
-     @-> size_t (* size *)
-     @-> or_error)
-  ;;
-
-  let mdb_env_set_maxreaders =
-    foreign "mdb_env_set_maxreaders"
-      (ptr Env.t (* env *)
-     @-> uint (* readers*)
-     @-> or_error)
-  ;;
-
-  let mdb_env_get_maxreaders =
-    foreign "mdb_env_get_maxreaders"
-      (ptr Env.t (* env *)
-     @-> ptr uint (* readers*)
-     @-> or_error)
-  ;;
-
-  (* mdb_env_set_maxdbs *)
-
-  let mdb_env_get_maxkeysize =
-    foreign "mdb_env_get_maxkeysize" (ptr Env.t (* env *)
-                                    @-> returning int)
-  ;;
-
-  (* mdb_env_set_userctx *)
-  (* mdb_env_get_userctx *)
-
-  (* typedef void MDB_assert_func(MDB_env *env, const char *msg) *)
-
-  (* mdb_env_set_assert *)
 
   module Txn' = struct
     let begin_ =
@@ -206,7 +193,6 @@ module C (F : Cstubs.FOREIGN) = struct
         @-> ptr (ptr Txn.t)
         (* txn *)
         @-> or_error )
-    ;;
 
     let env = foreign "mdb_txn_env" (ptr Txn.t @-> returning (ptr Env.t))
 
@@ -228,15 +214,12 @@ module C (F : Cstubs.FOREIGN) = struct
         @-> uint (* flags *)
         @-> ptr Dbi.t (* dbi *)
         @-> or_error )
-    ;;
 
     let stat =
       foreign "mdb_stat" (ptr Txn.t @-> Dbi.t @-> ptr Stat.t @-> or_error)
-    ;;
 
     let flags =
       foreign "mdb_dbi_flags" (ptr Txn.t @-> Dbi.t @-> ptr uint @-> or_error)
-    ;;
 
     let close = foreign "mdb_dbi_close" (ptr Env.t @-> Dbi.t @-> returning void)
 
@@ -255,7 +238,6 @@ module C (F : Cstubs.FOREIGN) = struct
       @-> ptr Val.t (* key *)
       @-> ptr Val.t (* data *)
       @-> or_error )
-  ;;
 
   let put =
     foreign "mdb_put"
@@ -265,7 +247,6 @@ module C (F : Cstubs.FOREIGN) = struct
       @-> ptr Val.t (* data *)
       @-> uint (* flags *)
       @-> or_error )
-  ;;
 
   let del =
     foreign "mdb_del"
@@ -274,5 +255,4 @@ module C (F : Cstubs.FOREIGN) = struct
       @-> ptr Val.t (* key *)
       @-> ptr Val.t (* data *)
       @-> or_error )
-  ;;
 end
