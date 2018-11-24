@@ -4,7 +4,9 @@
   (c_library_flags (-llmdb))
   (no_dynlink)
   (modes native)
-  (libraries bigarray ctypes.foreign ctypes.stubs ctypes))
+
+  (preprocess (pps ppx_here))
+  (libraries base bigarray ctypes.foreign ctypes.stubs ctypes))
 
 (rule
   (targets lmdb_bindings.ml)

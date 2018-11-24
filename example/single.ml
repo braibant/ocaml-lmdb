@@ -1,12 +1,17 @@
 open! Lmdb.Wrapper
 
-let () = Printf.printf "42\n"
+let () =
+  let _env =
+    Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0664 "/tmp/testdb"
+  in
+  let txn = Txn.Experimental.null in
+  let db = Db.create txn in
+  let () =
+    put txn db ~flags:Unsigned.UInt.zero ~key:(Input.of_string "tutu")
+      ~data:(Input.of_string "data")
+  in
+  Txn.commit txn ; ()
 
-(* let main () =
- *   let env = Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0664 "./testdb" in
- *   let txn = Ctypes.allocate_n ~count:1 C.Txn.t in
- *   C.Txn'.begin_ env Ctypes.null (Unsigned.UInt.of_int 0)
- *   () *)
 (* nt main(int argc,char * argv[])
  * {
  * 	int rc;

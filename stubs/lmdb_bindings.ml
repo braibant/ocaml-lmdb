@@ -48,6 +48,8 @@ module C (F : Cstubs.FOREIGN) = struct
     let me_maxreaders = field t "me_maxreaders" uint
 
     let me_numreaders = field t "me_numreaders" uint
+
+    let _ = seal t
   end
 
   module Env = struct
@@ -158,9 +160,11 @@ module C (F : Cstubs.FOREIGN) = struct
   end
 
   module Val = struct
-    type t
+    type phantom
 
-    let t : t structure typ = structure "MDB_val"
+    type t = phantom structure
+
+    let t : t typ = structure "MDB_val"
 
     let mv_size = field t "mv_size" size_t
 

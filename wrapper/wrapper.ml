@@ -2,9 +2,11 @@ open! Ctypes
 module C = Lmdb_bindings.C (Lmdb_generated)
 open! C
 
-exception Error of string
+exception Error of string * string
 
-let raise_on_error i = if i <> 0 then raise (Error (C.mdb_strerror i))
+let raise_on_error ~here i =
+  if i <> 0 then
+    raise (Error (C.mdb_strerror i, Base.Source_code_position.to_string here))
 
 let _is_error i = i <> 0
 
@@ -13,9 +15,9 @@ module Env = struct
 
   let create ?(flags = Unsigned.UInt.zero) ?(mode = 0o755) path =
     let env = Ctypes.allocate_n (ptr C.Env.t) ~count:1 in
-    raise_on_error (C.mdb_env_create env) ;
+    raise_on_error ~here:[%here] (C.mdb_env_create env) ;
     let env = !@env in
-    raise_on_error (C.Env.open_ env path flags mode) ;
+    raise_on_error ~here:[%here] (C.Env.open_ env path flags mode) ;
     (* close? *)
     {raw= env}
 end
@@ -24,6 +26,8 @@ module Txn = struct
   type t = {raw: C.Txn.t ptr}
 
   let raw t = t.raw
+
+  let commit t = raise_on_error ~here:[%here] (Txn'.commit (raw t))
 
   module Experimental = struct
     let null = {raw= Ctypes.from_voidp C.Txn.t null}
@@ -50,15 +54,36 @@ module Db = struct
     let () =
       match name with
       | None ->
-          raise_on_error
+          raise_on_error ~here:[%here]
             (C.Dbi'.open_ raw_txn Ctypes.(from_voidp char null) flags dbi)
       | Some s ->
           let a = char_array_of_string s in
-          raise_on_error
+          raise_on_error ~here:[%here]
             (C.Dbi'.open_ raw_txn (Ctypes.CArray.start a) flags dbi)
     in
     {raw= !@dbi; closed= false}
+
+  let raw t = t.raw
 end
+
+module Input = struct
+  type t = String of {raw: C.Val.t; data: char Ctypes.CArray.t}
+
+  let of_string s =
+    let raw = Ctypes.make C.Val.t in
+    let data = char_array_of_string s in
+    Ctypes.setf raw C.Val.mv_size
+      (Unsigned.Size_t.of_int (Ctypes.CArray.length data)) ;
+    Ctypes.setf raw C.Val.mv_data (Ctypes.to_voidp (Ctypes.CArray.start data)) ;
+    String {raw; data}
+
+  let raw_addr = function String {raw; _} -> Ctypes.addr raw
+end
+
+let put txn db ~flags ~key ~data =
+  raise_on_error ~here:[%here]
+    (C.put (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data)
+       flags)
 
 (* module Transaction = struct
  *   type t = {
@@ -69,7 +94,7 @@ end
  *
  *   let create ?(flags = Unsigned.UInt.zero) ?parent env db =
  *     let txn = Ctypes.allocate_n (ptr C.Txn.t) ~count:1 in
- *     raise_on_error (C.Txn'.begin_ (Env.raw env) db txn);
+ *     raise_on_error ~here:[%here] (C.Txn'.begin_ (Env.raw env) db txn);
  *     let txn = !@ txn in
  *     {
  *       env;
