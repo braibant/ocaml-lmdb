@@ -1,10 +1,10 @@
 open! Lmdb.Wrapper
 
 let () =
-  let _env =
+  let env =
     Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0664 "/tmp/testdb"
   in
-  let txn = Txn.Experimental.null in
+  let txn = Txn.create env () in
   let db = Db.create txn in
   let () =
     put txn db ~flags:Unsigned.UInt.zero ~key:(Input.of_string "tutu")

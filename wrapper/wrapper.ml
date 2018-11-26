@@ -13,6 +13,7 @@ let _is_error i = i <> 0
 module Env = struct
   type t = {raw: C.Env.t ptr}
 
+  let raw t = t.raw
   let create ?(flags = Unsigned.UInt.zero) ?(mode = 0o755) path =
     let env = Ctypes.allocate_n (ptr C.Env.t) ~count:1 in
     raise_on_error ~here:[%here] (C.mdb_env_create env) ;
@@ -29,9 +30,14 @@ module Txn = struct
 
   let commit t = raise_on_error ~here:[%here] (Txn'.commit (raw t))
 
-  module Experimental = struct
-    let null = {raw= Ctypes.from_voidp C.Txn.t null}
-  end
+  let create env ?parent ?(flags = Unsigned.UInt.zero) () =
+    let parent = match parent with
+      | None -> Ctypes.(from_voidp C.Txn.t null)
+      | Some parent -> raw parent
+    in
+    let raw = Ctypes.allocate_n (ptr C.Txn.t) ~count:1 in
+    raise_on_error ~here:[%here] (C.Txn'.begin_ (Env.raw env)  parent flags raw);
+    {raw = !@ raw}
 end
 
 (* Returns a \0 terminated CArray that represents the content of s. *)
