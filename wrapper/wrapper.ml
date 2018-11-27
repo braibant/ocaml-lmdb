@@ -14,6 +14,7 @@ module Env = struct
   type t = {raw: C.Env.t ptr}
 
   let raw t = t.raw
+
   let create ?(flags = Unsigned.UInt.zero) ?(mode = 0o755) path =
     let env = Ctypes.allocate_n (ptr C.Env.t) ~count:1 in
     raise_on_error ~here:[%here] (C.mdb_env_create env) ;
@@ -31,13 +32,14 @@ module Txn = struct
   let commit t = raise_on_error ~here:[%here] (Txn'.commit (raw t))
 
   let create env ?parent ?(flags = Unsigned.UInt.zero) () =
-    let parent = match parent with
+    let parent =
+      match parent with
       | None -> Ctypes.(from_voidp C.Txn.t null)
       | Some parent -> raw parent
     in
     let raw = Ctypes.allocate_n (ptr C.Txn.t) ~count:1 in
-    raise_on_error ~here:[%here] (C.Txn'.begin_ (Env.raw env)  parent flags raw);
-    {raw = !@ raw}
+    raise_on_error ~here:[%here] (C.Txn'.begin_ (Env.raw env) parent flags raw) ;
+    {raw= !@raw}
 end
 
 (* Returns a \0 terminated CArray that represents the content of s. *)
@@ -73,7 +75,7 @@ module Db = struct
 end
 
 module Input = struct
-  type t = String of {raw: C.Val.t; data: char Ctypes.CArray.t}
+  type t = String of {raw: C.Val.t; data: char Ctypes.CArray.t} | Null
 
   let of_string s =
     let raw = Ctypes.make C.Val.t in
@@ -83,13 +85,44 @@ module Input = struct
     Ctypes.setf raw C.Val.mv_data (Ctypes.to_voidp (Ctypes.CArray.start data)) ;
     String {raw; data}
 
-  let raw_addr = function String {raw; _} -> Ctypes.addr raw
+  let null = Null
+
+  let raw_addr = function
+    | String {raw; _} -> Ctypes.addr raw
+    | Null -> Ctypes.(from_voidp C.Val.t null)
+end
+
+module Output = struct
+  type 'a t = To_string : C.Val.t -> string t
+
+  let to_string () =
+    let raw = Ctypes.make C.Val.t in
+    To_string raw
+
+  let raw_addr = function To_string v -> Ctypes.addr v
+
+  let read (type a) (t : a t) =
+    match t with To_string raw ->
+      let length = Ctypes.getf raw C.Val.mv_size in
+      let ptr = Ctypes.getf raw C.Val.mv_data in
+      Ctypes.string_from_ptr (from_voidp char ptr)
+        ~length:(Unsigned.Size_t.to_int length)
 end
 
 let put txn db ~flags ~key ~data =
   raise_on_error ~here:[%here]
     (C.put (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data)
        flags)
+
+let get txn db ~key =
+  let t = Output.to_string () in
+  raise_on_error ~here:[%here]
+    (C.get (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Output.raw_addr t)) ;
+  Output.read t
+
+let delete txn db ~key ~data =
+  raise_on_error ~here:[%here]
+    (C.del (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data))
 
 (* module Transaction = struct
  *   type t = {

@@ -1,16 +1,56 @@
+open Cmdliner
 open! Lmdb.Wrapper
 
-let () =
+let write ~key ~value =
   let env =
-    Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0664 "/tmp/testdb"
+    Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
   in
   let txn = Txn.create env () in
   let db = Db.create txn in
   let () =
-    put txn db ~flags:Unsigned.UInt.zero ~key:(Input.of_string "tutu")
-      ~data:(Input.of_string "data")
+    put txn db ~flags:Unsigned.UInt.zero ~key:(Input.of_string key)
+      ~data:(Input.of_string value)
   in
   Txn.commit txn ; ()
+
+let read ~key =
+  let env =
+    Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
+  in
+  let txn = Txn.create env () in
+  let db = Db.create txn in
+  let result = get txn db ~key:(Input.of_string key) in
+  Txn.commit txn ; Stdio.printf "%s\n" result
+
+module Cmd = struct
+  let key =
+    Arg.(required & pos 0 (some string) None & info [] ~docv:"KEY" ~doc:"key")
+
+  let value =
+    Arg.(
+      required & pos 1 (some string) None & info [] ~docv:"VAL" ~doc:"value")
+
+  let write =
+    let info = Cmdliner.Term.info "write" in
+    let write key value = write ~key ~value in
+    (Term.(const write $ key $ value), info)
+
+  let read =
+    let info = Cmdliner.Term.info "read" in
+    let read key = read ~key in
+    (Term.(const read $ key), info)
+
+  let default =
+    let doc = "a embedded database system" in
+    let sdocs = Manpage.s_common_options in
+    let exits = Term.default_exits in
+    ( Term.(ret (const (`Help (`Pager, None))))
+    , Term.info "single" ~doc ~sdocs ~exits ~man:[] )
+end
+
+let cmds = Cmd.[write; read]
+
+let () = Term.(exit @@ eval_choice Cmd.default cmds)
 
 (* nt main(int argc,char * argv[])
  * {
