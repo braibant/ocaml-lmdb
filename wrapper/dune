@@ -5,7 +5,7 @@
   (no_dynlink)
   (modes native)
 
-  (preprocess (pps ppx_here))
+  (preprocess (pps ppx_here ppx_jane))
   (libraries base bigarray ctypes.foreign ctypes.stubs ctypes))
 
 (rule

@@ -115,6 +115,12 @@ module C (F : Cstubs.FOREIGN) = struct
        @-> ptr uint (* readers*)
        @-> or_error)
 
+    let set_maxdbs =
+      foreign "mdb_env_set_maxdbs"
+        (ptr t (* env *)
+       @-> uint (* dbs*)
+       @-> or_error)
+
     (* mdb_env_set_maxdbs *)
 
     let get_maxkeysize =
