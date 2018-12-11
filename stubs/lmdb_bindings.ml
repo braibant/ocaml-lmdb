@@ -1,5 +1,4 @@
 open Ctypes
-
 module Types = Lmdb_types
 
 module C (F : Cstubs.FOREIGN) = struct
@@ -127,12 +126,11 @@ module C (F : Cstubs.FOREIGN) = struct
 
     (* mdb_env_set_userctx *)
     (* mdb_env_get_userctx *)
-
+    
     (* typedef void MDB_assert_func(MDB_env *env, const char *msg) *)
-
+    
     (* mdb_env_set_assert *)
   end
-
 
   let mdb_version =
     foreign "mdb_version"
@@ -153,6 +151,7 @@ module C (F : Cstubs.FOREIGN) = struct
 
   module Txn = struct
     include Types.Txn
+
     let begin_ =
       foreign "mdb_txn_begin"
         ( ptr Types.Env.t (* env *)
@@ -178,6 +177,7 @@ module C (F : Cstubs.FOREIGN) = struct
 
   module Dbi = struct
     include Types.Dbi
+
     let open_ =
       foreign "mdb_dbi_open"
         ( ptr Txn.t @-> ptr char (* name *)
@@ -185,13 +185,13 @@ module C (F : Cstubs.FOREIGN) = struct
         @-> ptr t (* dbi *)
         @-> or_error )
 
-    let stat =
-      foreign "mdb_stat" (ptr Txn.t @-> t @-> ptr Stat.t @-> or_error)
+    let stat = foreign "mdb_stat" (ptr Txn.t @-> t @-> ptr Stat.t @-> or_error)
 
     let flags =
       foreign "mdb_dbi_flags" (ptr Txn.t @-> t @-> ptr uint @-> or_error)
 
-    let close = foreign "mdb_dbi_close" (ptr Types.Env.t @-> t @-> returning void)
+    let close =
+      foreign "mdb_dbi_close" (ptr Types.Env.t @-> t @-> returning void)
 
     let drop = foreign "mdb_drop" (ptr Txn.t @-> t @-> int @-> or_error)
 

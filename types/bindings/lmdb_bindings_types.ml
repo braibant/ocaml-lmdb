@@ -39,8 +39,13 @@ module C (C : Cstubs.Types.TYPE) = struct
       typedef (structure "MDB_txn") "MDB_txn"
   end
 
-  module Dbi : sig type t val t : t typ end = struct
+  module Dbi : sig
+    type t
+
+    val t : t typ
+  end = struct
     type t = Unsigned.uint
+
     let t : t typ = typedef uint "MDB_dbi"
   end
 
@@ -182,67 +187,73 @@ module C (C : Cstubs.Types.TYPE) = struct
  *)
   let _MDB_CP_COMPACT = int "MDB_CP_COMPACT"
 
-
-      (** Cursor Get operations.
+  (** Cursor Get operations.
 
  	This is the set of all operations for retrieving data using a cursor. *)
 
   type cursor_op =
-    | MDB_FIRST				(** Position at first key/data item *)
-    | MDB_FIRST_DUP			(** Position at first data item of current key.
+    | MDB_FIRST  (** Position at first key/data item *)
+    | MDB_FIRST_DUP
+        (** Position at first data item of current key.
                           Only for #MDB_DUPSORT *)
-    | MDB_GET_BOTH			(** Position at key/data pair. Only for #MDB_DUPSORT *)
-    | MDB_GET_BOTH_RANGE		(** position at key nearest data. Only for #MDB_DUPSORT *)
-    | MDB_GET_CURRENT		(** Return key/data at current cursor position *)
-    | MDB_GET_MULTIPLE		(** Return key and up to a page of duplicate data items
+    | MDB_GET_BOTH  (** Position at key/data pair. Only for #MDB_DUPSORT *)
+    | MDB_GET_BOTH_RANGE
+        (** position at key nearest data. Only for #MDB_DUPSORT *)
+    | MDB_GET_CURRENT  (** Return key/data at current cursor position *)
+    | MDB_GET_MULTIPLE
+        (** Return key and up to a page of duplicate data items
                             from current cursor position. Move cursor to prepare
                             for #MDB_NEXT_MULTIPLE. Only for #MDB_DUPFIXED *)
-    | MDB_LAST				(** Position at last key/data item *)
-    | MDB_LAST_DUP			(** Position at last data item of current key.
+    | MDB_LAST  (** Position at last key/data item *)
+    | MDB_LAST_DUP
+        (** Position at last data item of current key.
                          Only for #MDB_DUPSORT *)
-    | MDB_NEXT				(** Position at next data item *)
-    | MDB_NEXT_DUP			(** Position at next data item of current key. | Only
+    | MDB_NEXT  (** Position at next data item *)
+    | MDB_NEXT_DUP
+        (** Position at next data item of current key. | Only
                            for #MDB_DUPSORT *)
-    | MDB_NEXT_MULTIPLE		(** Return key and up to a page of duplicate data
+    | MDB_NEXT_MULTIPLE
+        (** Return key and up to a page of duplicate data
                              items from next cursor position. Move cursor to
                              prepare for #MDB_NEXT_MULTIPLE. Only for
                              #MDB_DUPFIXED *)
-    | MDB_NEXT_NODUP			(** Position at first data item of next key *)
-    | MDB_PREV				(** Position at previous data item *)
-    | MDB_PREV_DUP			(** Position at previous data item of current key. Only
+    | MDB_NEXT_NODUP  (** Position at first data item of next key *)
+    | MDB_PREV  (** Position at previous data item *)
+    | MDB_PREV_DUP
+        (** Position at previous data item of current key. Only
                            for #MDB_DUPSORT *)
-    | MDB_PREV_NODUP			(** Position at last data item of previous key *)
-    | MDB_SET				(** Position at specified key *)
-    | MDB_SET_KEY			(** Position at specified key, return key + data *)
-    | MDB_SET_RANGE			(** Position at first key greater than or equal to
+    | MDB_PREV_NODUP  (** Position at last data item of previous key *)
+    | MDB_SET  (** Position at specified key *)
+    | MDB_SET_KEY  (** Position at specified key, return key + data *)
+    | MDB_SET_RANGE
+        (** Position at first key greater than or equal to
                            specified key. *)
-      | MDB_PREV_MULTIPLE		(** Position at previous page and return key and up to a
+    | MDB_PREV_MULTIPLE
+        (** Position at previous page and return key and up to a
                            page of duplicate data items. Only for #MDB_DUPFIXED
                            *)
 
-  let _MDB_cursor_op = enum "MDB_cursor_op" [
-MDB_FIRST , constant "MDB_FIRST" int64_t
-; MDB_FIRST_DUP , constant "MDB_FIRST_DUP" int64_t
-; MDB_GET_BOTH , constant "MDB_GET_BOTH" int64_t
-; MDB_GET_BOTH_RANGE , constant "MDB_GET_BOTH_RANGE" int64_t
-; MDB_GET_CURRENT , constant "MDB_GET_CURRENT" int64_t
-; MDB_GET_MULTIPLE , constant "MDB_GET_MULTIPLE" int64_t
-; MDB_LAST , constant "MDB_LAST" int64_t
-; MDB_LAST_DUP , constant "MDB_LAST_DUP" int64_t
-; MDB_NEXT , constant "MDB_NEXT" int64_t
-; MDB_NEXT_DUP , constant "MDB_NEXT_DUP" int64_t
-; MDB_NEXT_MULTIPLE , constant "MDB_NEXT_MULTIPLE" int64_t
-; MDB_NEXT_NODUP , constant "MDB_NEXT_NODUP" int64_t
-; MDB_PREV , constant "MDB_PREV" int64_t
-; MDB_PREV_DUP , constant "MDB_PREV_DUP" int64_t
-; MDB_PREV_NODUP , constant "MDB_PREV_NODUP" int64_t
-; MDB_SET , constant "MDB_SET" int64_t
-; MDB_SET_KEY , constant "MDB_SET_KEY" int64_t
-; MDB_SET_RANGE , constant "MDB_SET_RANGE" int64_t
-; MDB_PREV_MULTIPLE , constant "MDB_PREV_MULTIPLE" int64_t
-
-    ]
-
+  let _MDB_cursor_op =
+    enum "MDB_cursor_op"
+      [ (MDB_FIRST, constant "MDB_FIRST" int64_t)
+      ; (MDB_FIRST_DUP, constant "MDB_FIRST_DUP" int64_t)
+      ; (MDB_GET_BOTH, constant "MDB_GET_BOTH" int64_t)
+      ; (MDB_GET_BOTH_RANGE, constant "MDB_GET_BOTH_RANGE" int64_t)
+      ; (MDB_GET_CURRENT, constant "MDB_GET_CURRENT" int64_t)
+      ; (MDB_GET_MULTIPLE, constant "MDB_GET_MULTIPLE" int64_t)
+      ; (MDB_LAST, constant "MDB_LAST" int64_t)
+      ; (MDB_LAST_DUP, constant "MDB_LAST_DUP" int64_t)
+      ; (MDB_NEXT, constant "MDB_NEXT" int64_t)
+      ; (MDB_NEXT_DUP, constant "MDB_NEXT_DUP" int64_t)
+      ; (MDB_NEXT_MULTIPLE, constant "MDB_NEXT_MULTIPLE" int64_t)
+      ; (MDB_NEXT_NODUP, constant "MDB_NEXT_NODUP" int64_t)
+      ; (MDB_PREV, constant "MDB_PREV" int64_t)
+      ; (MDB_PREV_DUP, constant "MDB_PREV_DUP" int64_t)
+      ; (MDB_PREV_NODUP, constant "MDB_PREV_NODUP" int64_t)
+      ; (MDB_SET, constant "MDB_SET" int64_t)
+      ; (MDB_SET_KEY, constant "MDB_SET_KEY" int64_t)
+      ; (MDB_SET_RANGE, constant "MDB_SET_RANGE" int64_t)
+      ; (MDB_PREV_MULTIPLE, constant "MDB_PREV_MULTIPLE" int64_t) ]
 end
 
 (*
