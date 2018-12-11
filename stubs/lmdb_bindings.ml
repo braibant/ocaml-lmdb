@@ -13,45 +13,8 @@ module C (F : Cstubs.FOREIGN) = struct
     let t : t typ = int
   end
 
-  module Stat = struct
-    type t
-
-    let t : t structure typ = structure "MDB_stat"
-
-    let ms_psize = field t "ms_psize" uint
-
-    let ms_depth = field t "ms_depth" uint
-
-    let ms_branch_pages = field t "ms_branch_pages" size_t
-
-    let ms_leaf_pages = field t "ms_leaf_pages" size_t
-
-    let ms_overflow_pages = field t "ms_overflow_pages" size_t
-
-    let ms_entries = field t "ms_entries" size_t
-
-    let _ = seal t
-  end
-
-  module Envinfo = struct
-    type t
-
-    let t : t structure typ = structure "MDB_envinfo"
-
-    let me_mapaddr = field t "me_mapaddr" (ptr void)
-
-    let me_mapsize = field t "me_mapsize" size_t
-
-    let me_last_pgno = field t "me_last_pgno" size_t
-
-    let me_last_txnid = field t "me_last_txnid" size_t
-
-    let me_maxreaders = field t "me_maxreaders" uint
-
-    let me_numreaders = field t "me_numreaders" uint
-
-    let _ = seal t
-  end
+  module Stat = Types.Stat
+  module Envinfo = Types.Envinfo
 
   module Env = struct
     open Types.Env

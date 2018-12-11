@@ -254,16 +254,8 @@ module C (C : Cstubs.Types.TYPE) = struct
       ; (MDB_SET_KEY, constant "MDB_SET_KEY" int64_t)
       ; (MDB_SET_RANGE, constant "MDB_SET_RANGE" int64_t)
       ; (MDB_PREV_MULTIPLE, constant "MDB_PREV_MULTIPLE" int64_t) ]
-end
 
-(*
-
-
-
-
-
-
-
+  (*
 /** @defgroup  errors	Return Codes
  *
  *	BerkeleyDB uses -30800 to -30999, we'll go under them
@@ -321,27 +313,62 @@ end
 /** The last defined error code */
 #define MDB_LAST_ERRCODE	MDB_BAD_DBI
 /** @} */
+ *)
+  module Stat = struct
+    type t
 
-/** @brief Statistics for a database in the environment */
-typedef struct MDB_stat {
-unsigned int	ms_psize;			/**< Size of a database page.
-This is currently the same for all databases. */
-unsigned int	ms_depth;			/**< Depth (height) of the B-tree */
-size_t		ms_branch_pages;	/**< Number of internal (non-leaf) pages */
-size_t		ms_leaf_pages;		/**< Number of leaf pages */
-size_t		ms_overflow_pages;	/**< Number of overflow pages */
-size_t		ms_entries;			/**< Number of data items */
-} MDB_stat;
+    let t : t structure typ = structure "MDB_stat"
 
-/** @brief Information about the environment */
-typedef struct MDB_envinfo {
-void	*me_mapaddr;			/**< Address of map, if fixed */
-size_t	me_mapsize;				/**< Size of the data memory map */
-size_t	me_last_pgno;			/**< ID of the last used page */
-size_t	me_last_txnid;			/**< ID of the last committed transaction */
-unsigned int me_maxreaders;		/**< max reader slots in the environment */
-unsigned int me_numreaders;		/**< max reader slots used in the environment */
-} MDB_envinfo;
+    (** Size of a database page. This is currently the same for all databases.
+       *)
+    let ms_psize = field t "ms_psize" uint
+
+    (**  Depth (height) of the B-tree   *)
+    let ms_depth = field t "ms_depth" uint
+
+    (**  Number of internal (non-leaf) pages *)
+    let ms_branch_pages = field t "ms_branch_pages" size_t
+
+    (**  Number of leaf pages *)
+    let ms_leaf_pages = field t "ms_leaf_pages" size_t
+
+    (** Number of overflow pages  *)
+    let ms_overflow_pages = field t "ms_overflow_pages" size_t
+
+    (**Number of data items  *)
+    let ms_entries = field t "ms_entries" size_t
+
+    let _ = seal t
+  end
+
+  module Envinfo = struct
+    type t
+
+    let t : t structure typ = structure "MDB_envinfo"
+
+    (** Address of map, if fixed  *)
+    let me_mapaddr = field t "me_mapaddr" (ptr void)
+
+    (** Size of the data memory map  *)
+    let me_mapsize = field t "me_mapsize" size_t
+
+    (** ID of the last used page  *)
+    let me_last_pgno = field t "me_last_pgno" size_t
+
+    (** ID of the last committed transaction  *)
+    let me_last_txnid = field t "me_last_txnid" size_t
+
+    (** max reader slots in the environment  *)
+    let me_maxreaders = field t "me_maxreaders" uint
+
+    (** max reader slots used in the environment  *)
+    let me_numreaders = field t "me_numreaders" uint
+
+    let _ = seal t
+  end
+end
+
+(*
 
 /** @brief Return the LMDB library version information.
 *
