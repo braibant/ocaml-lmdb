@@ -34,29 +34,28 @@ module Stat = struct
 end
 
 module Env = struct
-  type t = {raw: C.Env.t ptr}
+  type t = {raw: Lmdb_types.Env.t ptr}
 
   let raw t = t.raw
 
   let create ?mapsize ?maxreaders ?maxdbs ?(flags = Unsigned.UInt.zero)
       ?(mode = 0o755) path =
-    let env = Ctypes.allocate_n (ptr C.Env.t) ~count:1 in
+    let env = Ctypes.allocate_n (ptr Lmdb_types.Env.t) ~count:1 in
     raise_on_error ~here:[%here] (C.mdb_env_create env) ;
     let env = !@env in
-    begin try
-      Option.iter mapsize ~f:(fun i ->
-          C.Env.set_mapsize env (Unsigned.Size_t.of_int i)
-          |> raise_on_error ~here:[%here] ) ;
-      Option.iter maxreaders ~f:(fun i ->
-          C.Env.set_maxreaders env (Unsigned.UInt.of_int i)
-          |> raise_on_error ~here:[%here] ) ;
-      Option.iter maxdbs ~f:(fun i ->
-          C.Env.set_maxdbs env (Unsigned.UInt.of_int i)
-          |> raise_on_error ~here:[%here] ) ;
-      raise_on_error ~here:[%here] (C.Env.open_ env path flags mode) ;
-      Caml.Gc.finalise Env.close env
-      with e -> Env.close env; raise e
-    end;
+    ( try
+        Option.iter mapsize ~f:(fun i ->
+            C.Env.set_mapsize env (Unsigned.Size_t.of_int i)
+            |> raise_on_error ~here:[%here] ) ;
+        Option.iter maxreaders ~f:(fun i ->
+            C.Env.set_maxreaders env (Unsigned.UInt.of_int i)
+            |> raise_on_error ~here:[%here] ) ;
+        Option.iter maxdbs ~f:(fun i ->
+            C.Env.set_maxdbs env (Unsigned.UInt.of_int i)
+            |> raise_on_error ~here:[%here] ) ;
+        raise_on_error ~here:[%here] (C.Env.open_ env path flags mode) ;
+        Caml.Gc.finalise Env.close env
+      with e -> Env.close env ; raise e ) ;
     {raw= env}
 
   let stat t =
@@ -72,21 +71,21 @@ module Txn = struct
 
   let commit t =
     assert (not t.freed) ;
-    raise_on_error ~here:[%here] (Txn'.commit (raw t)) ;
+    raise_on_error ~here:[%here] (Txn.commit (raw t)) ;
     t.freed <- true
 
   let abort t =
     assert (not t.freed) ;
-    Txn'.abort (raw t) ;
+    Txn.abort (raw t) ;
     t.freed <- true
 
   let reset t =
     assert (not t.freed) ;
-    Txn'.reset (raw t)
+    Txn.reset (raw t)
 
   let renew t =
     assert (not t.freed) ;
-    raise_on_error ~here:[%here] (Txn'.renew (raw t))
+    raise_on_error ~here:[%here] (Txn.renew (raw t))
 
   let create env ?parent ?(flags = Unsigned.UInt.zero) () =
     let parent =
@@ -95,7 +94,7 @@ module Txn = struct
       | Some parent -> raw parent
     in
     let raw = Ctypes.allocate_n (ptr C.Txn.t) ~count:1 in
-    raise_on_error ~here:[%here] (C.Txn'.begin_ (Env.raw env) parent flags raw) ;
+    raise_on_error ~here:[%here] (C.Txn.begin_ (Env.raw env) parent flags raw) ;
     {raw= !@raw; freed= false}
 end
 
@@ -120,11 +119,11 @@ module Db = struct
       match name with
       | None ->
           raise_on_error ~here:[%here]
-            (C.Dbi'.open_ raw_txn Ctypes.(from_voidp char null) flags dbi)
+            (C.Dbi.open_ raw_txn Ctypes.(from_voidp char null) flags dbi)
       | Some s ->
           let a = char_array_of_string s in
           raise_on_error ~here:[%here]
-            (C.Dbi'.open_ raw_txn (Ctypes.CArray.start a) flags dbi)
+            (C.Dbi.open_ raw_txn (Ctypes.CArray.start a) flags dbi)
     in
     {raw= !@dbi; closed= false}
 

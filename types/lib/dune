@@ -1,0 +1,9 @@
+(library
+ (name lmdb_types)
+ (synopsis "Ctypes bindings that describe the lmdb FFI constants")
+ (libraries ctypes.stubs ctypes lmdb_bindings_types))
+
+(rule
+ (targets t.ml)
+ (deps ../stubgen/lmdb_types_gen.exe)
+ (action (with-stdout-to %{targets} (run %{deps}))))

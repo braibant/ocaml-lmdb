@@ -6,7 +6,7 @@
   (modes native)
 
   (preprocess (pps ppx_here ppx_jane))
-  (libraries base bigarray ctypes.foreign ctypes.stubs ctypes))
+  (libraries base bigarray lmdb_types ctypes.foreign ctypes.stubs ctypes))
 
 (rule
   (targets lmdb_bindings.ml)

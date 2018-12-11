@@ -1,5 +1,7 @@
 open Ctypes
 
+module Types = Lmdb_types
+
 module C (F : Cstubs.FOREIGN) = struct
   open! F
 
@@ -53,11 +55,7 @@ module C (F : Cstubs.FOREIGN) = struct
   end
 
   module Env = struct
-    type phantom
-
-    type t = phantom structure
-
-    let t : phantom structure typ = typedef (structure "MDB_env") "MDB_env"
+    open Types.Env
 
     let open_ =
       foreign "mdb_env_open"
@@ -129,55 +127,12 @@ module C (F : Cstubs.FOREIGN) = struct
 
     (* mdb_env_set_userctx *)
     (* mdb_env_get_userctx *)
-    
+
     (* typedef void MDB_assert_func(MDB_env *env, const char *msg) *)
-    
+
     (* mdb_env_set_assert *)
   end
 
-  module Txn : sig
-    type t
-
-    val t : t typ
-  end = struct
-    type t = unit structure
-
-    let t = typedef (structure "MDB_txn") "MDB_txn"
-  end
-
-  module Dbi : sig
-    type t = Unsigned.UInt.t
-
-    val t : t typ
-  end = struct
-    type t = Unsigned.UInt.t
-
-    let t = typedef uint "MDB_dbi"
-  end
-
-  module Cursor : sig
-    type t
-
-    val t : t typ
-  end = struct
-    type t = unit structure
-
-    let t = typedef (structure "MDB_cursor") "MDB_cursor"
-  end
-
-  module Val = struct
-    type phantom
-
-    type t = phantom structure
-
-    let t : t typ = structure "MDB_val"
-
-    let mv_size = field t "mv_size" size_t
-
-    let mv_data = field t "mv_data" (ptr void)
-
-    let _ = seal t
-  end
 
   let mdb_version =
     foreign "mdb_version"
@@ -191,50 +146,54 @@ module C (F : Cstubs.FOREIGN) = struct
                                            @-> returning string)
 
   let mdb_env_create =
-    foreign "mdb_env_create" (ptr (ptr Env.t) (* env *)
+    foreign "mdb_env_create" (ptr (ptr Types.Env.t) (* env *)
                              @-> or_error)
 
-  module Txn' = struct
+  module Val = Types.Val
+
+  module Txn = struct
+    include Types.Txn
     let begin_ =
       foreign "mdb_txn_begin"
-        ( ptr Env.t (* env *)
-        @-> ptr Txn.t (* parent *)
+        ( ptr Types.Env.t (* env *)
+        @-> ptr t (* parent *)
         @-> uint
         (* flags *)
-        @-> ptr (ptr Txn.t)
+        @-> ptr (ptr t)
         (* txn *)
         @-> or_error )
 
-    let env = foreign "mdb_txn_env" (ptr Txn.t @-> returning (ptr Env.t))
+    let env = foreign "mdb_txn_env" (ptr t @-> returning (ptr Types.Env.t))
 
-    let id = foreign "mdb_txn_id" (ptr Txn.t @-> returning size_t)
+    let id = foreign "mdb_txn_id" (ptr t @-> returning size_t)
 
-    let commit = foreign "mdb_txn_commit" (ptr Txn.t @-> returning int)
+    let commit = foreign "mdb_txn_commit" (ptr t @-> returning int)
 
-    let abort = foreign "mdb_txn_abort" (ptr Txn.t @-> returning void)
+    let abort = foreign "mdb_txn_abort" (ptr t @-> returning void)
 
-    let reset = foreign "mdb_txn_reset" (ptr Txn.t @-> returning void)
+    let reset = foreign "mdb_txn_reset" (ptr t @-> returning void)
 
-    let renew = foreign "mdb_txn_renew" (ptr Txn.t @-> returning int)
+    let renew = foreign "mdb_txn_renew" (ptr t @-> returning int)
   end
 
-  module Dbi' = struct
+  module Dbi = struct
+    include Types.Dbi
     let open_ =
       foreign "mdb_dbi_open"
         ( ptr Txn.t @-> ptr char (* name *)
         @-> uint (* flags *)
-        @-> ptr Dbi.t (* dbi *)
+        @-> ptr t (* dbi *)
         @-> or_error )
 
     let stat =
-      foreign "mdb_stat" (ptr Txn.t @-> Dbi.t @-> ptr Stat.t @-> or_error)
+      foreign "mdb_stat" (ptr Txn.t @-> t @-> ptr Stat.t @-> or_error)
 
     let flags =
-      foreign "mdb_dbi_flags" (ptr Txn.t @-> Dbi.t @-> ptr uint @-> or_error)
+      foreign "mdb_dbi_flags" (ptr Txn.t @-> t @-> ptr uint @-> or_error)
 
-    let close = foreign "mdb_dbi_close" (ptr Env.t @-> Dbi.t @-> returning void)
+    let close = foreign "mdb_dbi_close" (ptr Types.Env.t @-> t @-> returning void)
 
-    let drop = foreign "mdb_drop" (ptr Txn.t @-> Dbi.t @-> int @-> or_error)
+    let drop = foreign "mdb_drop" (ptr Txn.t @-> t @-> int @-> or_error)
 
     (* mdb_set_compare *)
     (* mdb_set_dupsort*)

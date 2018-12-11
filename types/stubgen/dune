@@ -1,0 +1,15 @@
+(executables
+  (names lmdb_types_gen0)
+  (libraries ctypes.stubs lmdb_bindings_types))
+
+(rule
+ (targets lmdb_types_gen.c)
+ (deps ./lmdb_types_gen0.exe)
+ (action (with-stdout-to %{targets} (run %{deps}))))
+
+(rule
+ (targets lmdb_types_gen.exe)
+ (deps    (:c ./lmdb_types_gen.c))
+ (action (bash "\
+%{cc} %{c} -I `dirname %{lib:ctypes:ctypes_cstubs_internals.h}` \
+  -I %{ocaml_where} -o %{targets}")))

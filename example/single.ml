@@ -4,84 +4,90 @@ open! Lmdb.Wrapper
 module Repl = struct
   let read () = read_line ()
 
-  let prompt () = Stdio.printf "$ %!";
+  let prompt () = Stdio.printf "$ %!"
 
   module Expr = struct
     type t =
       | Nop
-       | Read of string
-       | Write of string * string
-       | Begin_txn
-       | Commit_txn
-       | Abort_txn
+      | Read of string
+      | Write of string * string
+      | Begin_txn
+      | Commit_txn
+      | Abort_txn
   end
 
   module Parser = struct
     open Expr
     open Angstrom
 
-
     let parens p = char '(' *> p <* char ')'
-    let alphanum = take_while (Base.Char.is_alphanum)
-    let pair ~sep a b = a >>= fun a -> char sep *>  b >>= fun b -> return (a,b)
+
+    let alphanum = take_while Base.Char.is_alphanum
+
+    let pair ~sep a b = a >>= fun a -> char sep *> b >>= fun b -> return (a, b)
 
     let read = char 'r' *> parens alphanum >>= fun var -> return (Read var)
+
     let write =
-      char 'w' *> parens (pair ~sep:',' alphanum alphanum) >>= fun (var,value) -> return (Write (var, value))
+      char 'w' *> parens (pair ~sep:',' alphanum alphanum)
+      >>= fun (var, value) -> return (Write (var, value))
 
     let begin_ = string "begin" *> return Begin_txn
+
     let commit_ = string "commit" *> return Commit_txn
+
     let abort_ = string "abort" *> return Abort_txn
 
-    let expr : Expr.t t =
-      choice [read; write; begin_; commit_; abort_]
+    let expr : Expr.t t = choice [read; write; begin_; commit_; abort_]
 
-    let parse line = if String.length line = 0 then Ok Nop else parse_string expr line
+    let parse line =
+      if String.length line = 0 then Ok Nop else parse_string expr line
   end
 
   module Eval = struct
-    type t = {env : Env.t; mutable txns : Txn.t list; db : Db.t}
+    type t = {env: Env.t; mutable txns: Txn.t list; db: Db.t}
+
     let eval env (e : Expr.t) =
       match e with
       | Read var ->
-        let result = get (List.hd env.txns) env.db ~key:(Input.of_string var) in
-        Stdio.printf "> %s\n" result
+          let result =
+            get (List.hd env.txns) env.db ~key:(Input.of_string var)
+          in
+          Stdio.printf "> %s\n" result
       | Write (var, value) ->
-        put (List.hd env.txns) env.db ~flags:Unsigned.UInt.zero ~key:(Input.of_string var)
-          ~data:(Input.of_string value)
+          put (List.hd env.txns) env.db ~flags:Unsigned.UInt.zero
+            ~key:(Input.of_string var) ~data:(Input.of_string value)
       | Begin_txn ->
-        let txn = Txn.create env.env ~parent:(List.hd env.txns) () in
-        env.txns <- txn :: env.txns
+          let txn = Txn.create env.env ~parent:(List.hd env.txns) () in
+          env.txns <- txn :: env.txns
       | Commit_txn ->
-        let txn = List.hd env.txns in
-        Txn.commit txn;
-        env.txns <- List.tl env.txns
+          let txn = List.hd env.txns in
+          Txn.commit txn ;
+          env.txns <- List.tl env.txns
       | Abort_txn ->
-        let txn = List.hd env.txns in
-        Txn.abort txn;
-        env.txns <- List.tl env.txns
-      | Nop ->
-        Stdio.printf ""
+          let txn = List.hd env.txns in
+          Txn.abort txn ;
+          env.txns <- List.tl env.txns
+      | Nop -> Stdio.printf ""
 
     let create () =
-      let env = Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb" in
+      let env =
+        Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
+      in
       let txn = Txn.create env () in
       let db = Db.create txn in
-      {env; txns = [txn]; db}
+      {env; txns= [txn]; db}
   end
 
   let repl () =
     let env = Eval.create () in
     while true do
-      prompt ();
+      prompt () ;
       let line = read_line () in
-      match  Parser.parse line  with
-      | Result.Ok expr ->
-        Eval.eval env expr
-      | Error _ ->
-        Stdio.printf "Error\n"
+      match Parser.parse line with
+      | Result.Ok expr -> Eval.eval env expr
+      | Error _ -> Stdio.printf "Error\n"
     done
-
 end
 
 let write ~key ~value =
@@ -137,6 +143,7 @@ module Cmd = struct
   let repl =
     let info = Cmdliner.Term.info "repl" in
     (Term.(const Repl.repl $ const ()), info)
+
   let default =
     let doc = "a embedded database system" in
     let sdocs = Manpage.s_common_options in

@@ -1,0 +1,4 @@
+(library
+ (name lmdb_bindings_types)
+ (libraries ctypes.stubs ctypes)
+ (preprocess (pps ppx_sexp_conv)))

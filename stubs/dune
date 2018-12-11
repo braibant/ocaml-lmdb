@@ -1,3 +1,3 @@
 (executables
   (names lmdb_gen)
-  (libraries ctypes.stubs))
+  (libraries lmdb_types ctypes.stubs))
