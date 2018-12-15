@@ -1,6 +1,7 @@
 open Ctypes
 module Types = Lmdb_types
 
+(* Binding conventions: functions named mdb_X_Y are bound as Y in module X. *)
 module C (F : Cstubs.FOREIGN) = struct
   open! F
 
@@ -188,4 +189,41 @@ module C (F : Cstubs.FOREIGN) = struct
       @-> ptr Val.t (* key *)
       @-> ptr Val.t (* data *)
       @-> or_error )
+
+  module Cursor = struct
+    include Types.Cursor
+
+    let open_ =
+      foreign "mdb_cursor_open"
+        (ptr Txn.t @-> Dbi.t @-> ptr (ptr t) @-> or_error)
+
+    let close = foreign "mdb_cursor_close" (ptr t @-> or_error)
+
+    let renew = foreign "mdb_cursor_renew" (ptr Txn.t @-> ptr t @-> or_error)
+
+    let txn = foreign "mdb_cursor_txn" (ptr t @-> returning (ptr Txn.t))
+
+    let dbi = foreign "mdb_cursor_dbi" (ptr t @-> returning Dbi.t)
+
+    let get =
+      foreign "mdb_cursor_get"
+        ( ptr t @-> ptr Val.t (* key *)
+        @-> ptr Val.t (* data *)
+        @-> Types._MDB_cursor_op @-> or_error )
+
+    let put =
+      foreign "mdb_cursor_put"
+        ( ptr t @-> ptr Val.t (* key *)
+        @-> ptr Val.t (* data *)
+        @-> uint (* flags *)
+        @-> or_error )
+
+    let delete =
+      foreign "mdb_cursor_delete" (ptr t @-> uint (* flags *)
+                                 @-> or_error)
+
+    let count =
+      foreign "mdb_cursor_count" (ptr t @-> ptr size_t (* countp *)
+                                @-> or_error)
+  end
 end
