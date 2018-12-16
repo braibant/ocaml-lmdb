@@ -2,6 +2,8 @@ module C : sig
   include module type of Lmdb_bindings.C (Lmdb_generated)
 end
 
+
+
 module Stat : sig
   type t =
     { psize: int
@@ -72,21 +74,23 @@ module Input : sig
   val null : t
 end
 
+module Output  : sig
+  type 'a t
+
+  val allocate_bytes : Bytes.t t
+  val allocate_bigstring : Bigstring.t t
+  val bytes_buffer : ?pos: int -> ?len:int -> Bytes.t -> unit t
+  val bigstring_buffer : ?pos: int -> ?len:int -> Bigstring.t -> unit t
+end
+
 val put :
   Txn.t -> Db.t -> flags:Unsigned.uint -> key:Input.t -> data:Input.t -> unit
 
-val get : Txn.t -> Db.t -> key:Input.t -> string
+val get : Txn.t -> Db.t -> key:Input.t -> data:'a Output.t -> 'a
 
 val delete : Txn.t -> Db.t -> key:Input.t -> data:Input.t -> unit
 
 module Cursor : sig
-  module Output  : sig
-    type _ t =
-      | Allocate_bytes : Bytes.t t
-      | Allocate_bigstring : Bigstring.t t
-      | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
-      | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
-  end
   type _ t
   val run : Txn.t -> Db.t -> f:('a t -> 'b) -> 'b
 

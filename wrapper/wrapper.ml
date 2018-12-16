@@ -159,21 +159,64 @@ module Input = struct
     | Null -> Ctypes.(from_voidp C.Val.t null)
 end
 
+
 module Output = struct
-  type 'a t = To_string : C.Val.t -> string t
+  type 'a t =
+    | Allocate_bytes : Bytes.t t
+    | Allocate_bigstring : Bigstring.t t
+    | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
+    | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
 
-  let to_string () =
-    let raw = Ctypes.make C.Val.t in
-    To_string raw
+  exception Buffer_too_small
 
-  let raw_addr = function To_string v -> Ctypes.addr v
+  let allocate_bytes = Allocate_bytes
+  let allocate_bigstring= Allocate_bigstring
 
-  let read (type a) (t : a t) =
-    match t with To_string raw ->
-      let length = Ctypes.getf raw C.Val.mv_size in
-      let ptr = Ctypes.getf raw C.Val.mv_data in
-      Ctypes.string_from_ptr (from_voidp char ptr)
-        ~length:(Unsigned.Size_t.to_int length)
+  let bytes_buffer ?pos ?len buffer =
+    let pos = match pos with None -> 0 | Some i -> i in
+    let len = match len with None -> Bytes.length buffer - pos | Some i -> i in
+    if Bytes.length buffer < pos + len  then raise Buffer_too_small;
+    Write_to_bytes {buffer; pos; len}
+
+  let bigstring_buffer ?pos ?len buffer =
+    let pos = match pos with None -> 0 | Some i -> i in
+    let len = match len with None -> Bigstring.length buffer - pos | Some i -> i in
+    if Bigstring.length buffer < pos + len  then raise Buffer_too_small;
+    Write_to_bigstring {buffer; pos; len}
+
+  let check_length (type a) (t : a t) n = match t with
+    | Allocate_bytes -> true
+    | Allocate_bigstring -> true
+    | Write_to_bytes {len; _} -> n <= len
+    | Write_to_bigstring {len; _} -> n <= len
+  ;;
+
+  let copy (type a) (t : a t) v : a =
+    let len = Ctypes.getf v C.Val.mv_size  |> Unsigned.Size_t.to_int in
+    if not (check_length t len)
+    then raise Buffer_too_small;
+    let base = Ctypes.getf v C.Val.mv_data  |> Ctypes.from_voidp char in
+    match t with
+    | Allocate_bytes ->
+      let r = Bytes.create len in
+      for i = 0 to len - 1 do
+        Bytes.set r i Ctypes.(!@ (base +@ i))
+      done;
+      r
+    | _ -> failwith  "Not implemented"
+
+  (* let to_string () =
+   *   let raw = Ctypes.make C.Val.t in
+   *   To_string raw
+   *
+   * let raw_addr = function To_string v -> Ctypes.addr v
+   *
+   * let read (type a) (t : a t) =
+   *   match t with To_string raw ->
+   *     let length = Ctypes.getf raw C.Val.mv_size in
+   *     let ptr = Ctypes.getf raw C.Val.mv_data in
+   *     Ctypes.string_from_ptr (from_voidp char ptr)
+   *       ~length:(Unsigned.Size_t.to_int length) *)
 end
 
 let put txn db ~flags ~key ~data =
@@ -181,11 +224,11 @@ let put txn db ~flags ~key ~data =
     (C.put (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data)
        flags)
 
-let get txn db ~key =
-  let t = Output.to_string () in
+let get txn db ~key ~data:output =
+  let data = Ctypes.make C.Val.t in
   raise_on_error ~here:[%here]
-    (C.get (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Output.raw_addr t)) ;
-  Output.read t
+    (C.get (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Ctypes.addr data));
+  Output.copy output  data
 
 let delete txn db ~key ~data =
   raise_on_error ~here:[%here]
@@ -223,38 +266,6 @@ module Cursor = struct
     raise_on_error ~here:[%here] (C.Cursor.get cursor.raw key (addr cursor.data) Lmdb_types.MDB_SET)
   ;;
 
-  module Output = struct
-    type _ t =
-      | Allocate_bytes : Bytes.t t
-      | Allocate_bigstring : Bigstring.t t
-      | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
-      | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
-
-    exception Buffer_too_small
-
-    let check_length (type a) (t : a t) n = match t with
-      | Allocate_bytes -> true
-      | Allocate_bigstring -> true
-      | Write_to_bytes {len; _} -> n <= len
-      | Write_to_bigstring {len; _} -> n <= len
-    ;;
-
-    let copy (type a) (t : a t) v : a=
-      let len = Ctypes.getf v C.Val.mv_size  |> Unsigned.Size_t.to_int in
-      if not (check_length t len)
-      then raise Buffer_too_small;
-      let base = Ctypes.getf v C.Val.mv_data  |> Ctypes.from_voidp char in
-      match t with
-      | Allocate_bytes ->
-        let r = Bytes.create len in
-        for i = 0 to len - 1 do
-          Bytes.set r i Ctypes.(!@ (base +@ i))
-        done;
-        r
-      | _ -> failwith  "Not implemented"
-
-
-  end
 
   let get_current cursor ~key ~data =
     op0 cursor Lmdb_types.MDB_GET_CURRENT;
