@@ -68,6 +68,7 @@ module Input : sig
   val of_string : string -> t
   (** Copies the content of the string.  *)
 
+  val of_int : int -> t
   val null : t
 end
 
@@ -77,3 +78,28 @@ val put :
 val get : Txn.t -> Db.t -> key:Input.t -> string
 
 val delete : Txn.t -> Db.t -> key:Input.t -> data:Input.t -> unit
+
+module Cursor : sig
+  module Output  : sig
+    type _ t =
+      | Allocate_bytes : Bytes.t t
+      | Allocate_bigstring : Bigstring.t t
+      | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
+      | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
+  end
+  type _ t
+  val run : Txn.t -> Db.t -> f:('a t -> 'b) -> 'b
+
+  val first : 'a t -> unit
+  val last : 'a t -> unit
+  val next : 'a t -> unit
+  val prev : 'a t -> unit
+  val set : 'a t -> Input.t -> unit
+
+  val close : 'a t -> unit
+  val count : 'a t -> int
+  (* val delete : 'a t -> options:unit -> unit *)
+
+  val get_current : 'a t -> key:'a Output.t -> data: 'b Output.t -> 'a * 'b
+
+end

@@ -1,4 +1,4 @@
 (executables
-  (names single)
+  (names single mtest)
   (libraries angstrom cmdliner lmdb stdio)
    (preprocess (pps ppx_jane)))

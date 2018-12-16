@@ -132,6 +132,8 @@ end
 
 module Input = struct
   type t = String of {raw: C.Val.t; data: char Ctypes.CArray.t} | Null
+         | Raw of {raw: C.Val.t; payload : unit Ctypes.ptr}
+
 
   let of_string s =
     let raw = Ctypes.make C.Val.t in
@@ -141,10 +143,19 @@ module Input = struct
     Ctypes.setf raw C.Val.mv_data (Ctypes.to_voidp (Ctypes.CArray.start data)) ;
     String {raw; data}
 
+  let of_int i =
+    let raw = Ctypes.make C.Val.t in
+    let payload = Ctypes.to_voidp (Ctypes.allocate int i) in
+    Ctypes.setf raw C.Val.mv_size ( Unsigned.Size_t.of_int (sizeof int) );
+    Ctypes.setf raw C.Val.mv_data (payload) ;
+    Raw {raw; payload}
+
+
   let null = Null
 
   let raw_addr = function
     | String {raw; _} -> Ctypes.addr raw
+    | Raw {raw; _} -> Ctypes.addr raw
     | Null -> Ctypes.(from_voidp C.Val.t null)
 end
 
@@ -179,3 +190,85 @@ let get txn db ~key =
 let delete txn db ~key ~data =
   raise_on_error ~here:[%here]
     (C.del (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data))
+
+module Cursor = struct
+  type _ t = {
+    raw : C.Cursor.t ptr;
+    key : C.Val.t;
+    data : C.Val.t;
+  }
+
+
+  let run txn dbi ~f =
+    let cursor = Ctypes.allocate_n (ptr C.Cursor.t) ~count:1 in
+    raise_on_error ~here:[%here](C.Cursor.open_ (Txn.raw txn) (Db.raw dbi) cursor);
+    let raw = !@cursor in
+    let key = Ctypes.make C.Val.t in
+    let data = Ctypes.make C.Val.t in
+    let result = f {raw; key; data} in
+    C.Cursor.close  raw;
+    result
+  ;;
+
+  let op0 cursor op =
+    raise_on_error ~here:[%here] (C.Cursor.get cursor.raw (addr cursor.key)( addr cursor.data) op)
+  ;;
+
+  let first cursor = op0 cursor Lmdb_types.MDB_FIRST
+  let last cursor = op0 cursor Lmdb_types.MDB_LAST
+  let next cursor = op0 cursor Lmdb_types.MDB_NEXT
+  let prev cursor = op0 cursor Lmdb_types.MDB_PREV
+  let set cursor input =
+    let key = Input.raw_addr input in
+    raise_on_error ~here:[%here] (C.Cursor.get cursor.raw key (addr cursor.data) Lmdb_types.MDB_SET)
+  ;;
+
+  module Output = struct
+    type _ t =
+      | Allocate_bytes : Bytes.t t
+      | Allocate_bigstring : Bigstring.t t
+      | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
+      | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
+
+    exception Buffer_too_small
+
+    let check_length (type a) (t : a t) n = match t with
+      | Allocate_bytes -> true
+      | Allocate_bigstring -> true
+      | Write_to_bytes {len; _} -> n <= len
+      | Write_to_bigstring {len; _} -> n <= len
+    ;;
+
+    let copy (type a) (t : a t) v : a=
+      let len = Ctypes.getf v C.Val.mv_size  |> Unsigned.Size_t.to_int in
+      if not (check_length t len)
+      then raise Buffer_too_small;
+      let base = Ctypes.getf v C.Val.mv_data  |> Ctypes.from_voidp char in
+      match t with
+      | Allocate_bytes ->
+        let r = Bytes.create len in
+        for i = 0 to len - 1 do
+          Bytes.set r i Ctypes.(!@ (base +@ i))
+        done;
+        r
+      | _ -> failwith  "Not implemented"
+
+
+  end
+
+  let get_current cursor ~key ~data =
+    op0 cursor Lmdb_types.MDB_GET_CURRENT;
+    let k = Output.copy key cursor.key in
+    let d = Output.copy data cursor.data in
+    k,d
+
+
+  let close cursor = C.Cursor.close (cursor.raw)
+  let count cursor =
+    let countp = allocate_n size_t ~count:1 in
+    raise_on_error ~here:[%here] (C.Cursor.count cursor.raw countp);
+    (!@ countp) |> Unsigned.Size_t.to_int
+  ;;
+
+
+end
