@@ -163,6 +163,7 @@ end
 module Output = struct
   type 'a t =
     | Allocate_bytes : Bytes.t t
+    | Allocate_string : String.t t
     | Allocate_bigstring : Bigstring.t t
     | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
     | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
@@ -170,6 +171,7 @@ module Output = struct
   exception Buffer_too_small
 
   let allocate_bytes = Allocate_bytes
+  let allocate_string = Allocate_string
   let allocate_bigstring= Allocate_bigstring
 
   let bytes_buffer ?pos ?len buffer =
@@ -186,6 +188,7 @@ module Output = struct
 
   let check_length (type a) (t : a t) n = match t with
     | Allocate_bytes -> true
+    | Allocate_string -> true
     | Allocate_bigstring -> true
     | Write_to_bytes {len; _} -> n <= len
     | Write_to_bigstring {len; _} -> n <= len

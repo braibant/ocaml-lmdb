@@ -77,6 +77,7 @@ end
 module Output  : sig
   type 'a t
 
+  val allocate_string : String.t t
   val allocate_bytes : Bytes.t t
   val allocate_bigstring : Bigstring.t t
   val bytes_buffer : ?pos: int -> ?len:int -> Bytes.t -> unit t
