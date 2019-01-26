@@ -5,9 +5,14 @@ open! C
 
 exception Error of string * string
 
+exception Not_enough_capacity of int
+
 let raise_on_error ~here i =
   if i <> 0 then
     raise (Error (C.mdb_strerror i, Base.Source_code_position.to_string here))
+
+let raise_if_already_freed freed name =
+  if freed then failwith (Printf.sprintf "%s used after being free" name)
 
 let _is_error i = i <> 0
 
@@ -70,21 +75,21 @@ module Txn = struct
   let raw t = t.raw
 
   let commit t =
-    assert (not t.freed) ;
+    raise_if_already_freed t.freed "Txn" ;
     raise_on_error ~here:[%here] (Txn.commit (raw t)) ;
     t.freed <- true
 
   let abort t =
-    assert (not t.freed) ;
+    raise_if_already_freed t.freed "Txn" ;
     Txn.abort (raw t) ;
     t.freed <- true
 
   let reset t =
-    assert (not t.freed) ;
+    raise_if_already_freed t.freed "Txn" ;
     Txn.reset (raw t)
 
   let renew t =
-    assert (not t.freed) ;
+    raise_if_already_freed t.freed "Txn" ;
     raise_on_error ~here:[%here] (Txn.renew (raw t))
 
   let create env ?parent ?(flags = Unsigned.UInt.zero) () =
@@ -107,7 +112,7 @@ let char_array_of_string s =
   Ctypes.CArray.set p (String.length s) '\000' ;
   p
 
-module Db = struct
+module Dbi = struct
   type t = {raw: C.Dbi.t; mutable closed: bool}
 
   let create ?name ?(flags = Unsigned.UInt.zero) txn =
@@ -131,9 +136,10 @@ module Db = struct
 end
 
 module Input = struct
-  type t = String of {raw: C.Val.t; data: char Ctypes.CArray.t} | Null
-         | Raw of {raw: C.Val.t; payload : unit Ctypes.ptr}
-
+  type t =
+    | String of {raw: C.Val.t; data: char Ctypes.CArray.t}
+    | Null
+    | Raw of {raw: C.Val.t; payload: unit Ctypes.ptr}
 
   let of_string s =
     let raw = Ctypes.make C.Val.t in
@@ -146,10 +152,9 @@ module Input = struct
   let of_int i =
     let raw = Ctypes.make C.Val.t in
     let payload = Ctypes.to_voidp (Ctypes.allocate int i) in
-    Ctypes.setf raw C.Val.mv_size ( Unsigned.Size_t.of_int (sizeof int) );
-    Ctypes.setf raw C.Val.mv_data (payload) ;
+    Ctypes.setf raw C.Val.mv_size (Unsigned.Size_t.of_int (sizeof int)) ;
+    Ctypes.setf raw C.Val.mv_data payload ;
     Raw {raw; payload}
-
 
   let null = Null
 
@@ -159,54 +164,63 @@ module Input = struct
     | Null -> Ctypes.(from_voidp C.Val.t null)
 end
 
-
 module Output = struct
   type 'a t =
-    | Allocate_bytes : Bytes.t t
-    | Allocate_string : String.t t
-    | Allocate_bigstring : Bigstring.t t
-    | Write_to_bytes : {buffer : Bytes.t; pos : int; len : int} -> unit t
-    | Write_to_bigstring : {buffer : Bigstring.t; pos : int; len : int} -> unit t
+    | Allocate_bytes : {size_limit: int option} -> Bytes.t t
+    | Allocate_string : {size_limit: int option} -> String.t t
+    | Allocate_bigstring : {size_limit: int option} -> Bigstring.t t
+    | Write_to_bytes : {buffer: Bytes.t; pos: int; len: int} -> unit t
+    | Write_to_bigstring : {buffer: Bigstring.t; pos: int; len: int} -> unit t
 
-  exception Buffer_too_small
 
-  let allocate_bytes = Allocate_bytes
-  let allocate_string = Allocate_string
-  let allocate_bigstring= Allocate_bigstring
+  let allocate_bytes ~size_limit = Allocate_bytes {size_limit}
 
-  let bytes_buffer ?pos ?len buffer =
-    let pos = match pos with None -> 0 | Some i -> i in
-    let len = match len with None -> Bytes.length buffer - pos | Some i -> i in
-    if Bytes.length buffer < pos + len  then raise Buffer_too_small;
-    Write_to_bytes {buffer; pos; len}
+  let allocate_string ~size_limit = Allocate_string {size_limit}
 
-  let bigstring_buffer ?pos ?len buffer =
-    let pos = match pos with None -> 0 | Some i -> i in
-    let len = match len with None -> Bigstring.length buffer - pos | Some i -> i in
-    if Bigstring.length buffer < pos + len  then raise Buffer_too_small;
+  let allocate_bigstring ~size_limit = Allocate_bigstring {size_limit}
+
+  (* Capacity check is done in [prepare] *)
+  let in_bigstring_buffer ?(pos = 0) ?len buffer =
+    let len =
+      match len with Some len -> len | None -> Bigstring.length buffer - pos
+    in
     Write_to_bigstring {buffer; pos; len}
 
-  let check_length (type a) (t : a t) n = match t with
-    | Allocate_bytes -> true
-    | Allocate_string -> true
-    | Allocate_bigstring -> true
+  let in_bytes_buffer ?(pos = 0) ?len buffer =
+    let len =
+      match len with Some len -> len | None -> Bytes.length buffer - pos
+    in
+    Write_to_bytes {buffer; pos; len}
+
+  let check ~size_limit ~n =
+    match size_limit with None -> true | Some len -> n <= len
+
+  let has_capacity (type a) (t : a t) n =
+    match t with
+    | Allocate_bytes {size_limit} -> check ~size_limit ~n
+    | Allocate_string {size_limit} -> check ~size_limit ~n
+    | Allocate_bigstring {size_limit} -> check ~size_limit ~n
     | Write_to_bytes {len; _} -> n <= len
     | Write_to_bigstring {len; _} -> n <= len
-  ;;
 
   let copy (type a) (t : a t) v : a =
-    let len = Ctypes.getf v C.Val.mv_size  |> Unsigned.Size_t.to_int in
-    if not (check_length t len)
-    then raise Buffer_too_small;
-    let base = Ctypes.getf v C.Val.mv_data  |> Ctypes.from_voidp char in
+    let len = Ctypes.getf v C.Val.mv_size |> Unsigned.Size_t.to_int in
+    if not (has_capacity t len) then raise (Not_enough_capacity len);
+    let base = Ctypes.getf v C.Val.mv_data |> Ctypes.from_voidp char in
     match t with
-    | Allocate_bytes ->
-      let r = Bytes.create len in
-      for i = 0 to len - 1 do
-        Bytes.set r i Ctypes.(!@ (base +@ i))
-      done;
-      r
-    | _ -> failwith  "Not implemented"
+    | Allocate_bytes {size_limit = _} ->
+        let r = Bytes.create len in
+        for i = 0 to len - 1 do
+          Bytes.set r i Ctypes.(!@(base +@ i))
+        done ;
+        r
+    | Allocate_string {size_limit = _} ->
+        let r = Bytes.create len in
+        for i = 0 to len - 1 do
+          Bytes.set r i Ctypes.(!@(base +@ i))
+        done ;
+        Bytes.to_string r
+    | _ -> failwith "Not implemented"
 
   (* let to_string () =
    *   let raw = Ctypes.make C.Val.t in
@@ -224,65 +238,60 @@ end
 
 let put txn db ~flags ~key ~data =
   raise_on_error ~here:[%here]
-    (C.put (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data)
-       flags)
+    (C.put (Txn.raw txn) (Dbi.raw db) (Input.raw_addr key)
+       (Input.raw_addr data) flags)
 
 let get txn db ~key ~data:output =
   let data = Ctypes.make C.Val.t in
   raise_on_error ~here:[%here]
-    (C.get (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Ctypes.addr data));
-  Output.copy output  data
+    (C.get (Txn.raw txn) (Dbi.raw db) (Input.raw_addr key) (Ctypes.addr data)) ;
+  Output.copy output data
 
 let delete txn db ~key ~data =
   raise_on_error ~here:[%here]
-    (C.del (Txn.raw txn) (Db.raw db) (Input.raw_addr key) (Input.raw_addr data))
+    (C.del (Txn.raw txn) (Dbi.raw db) (Input.raw_addr key)
+       (Input.raw_addr data))
 
 module Cursor = struct
-  type _ t = {
-    raw : C.Cursor.t ptr;
-    key : C.Val.t;
-    data : C.Val.t;
-  }
-
+  type _ t = {raw: C.Cursor.t ptr; key: C.Val.t; data: C.Val.t}
 
   let run txn dbi ~f =
     let cursor = Ctypes.allocate_n (ptr C.Cursor.t) ~count:1 in
-    raise_on_error ~here:[%here](C.Cursor.open_ (Txn.raw txn) (Db.raw dbi) cursor);
+    raise_on_error ~here:[%here]
+      (C.Cursor.open_ (Txn.raw txn) (Dbi.raw dbi) cursor) ;
     let raw = !@cursor in
     let key = Ctypes.make C.Val.t in
     let data = Ctypes.make C.Val.t in
     let result = f {raw; key; data} in
-    C.Cursor.close  raw;
-    result
-  ;;
+    C.Cursor.close raw ; result
 
   let op0 cursor op =
-    raise_on_error ~here:[%here] (C.Cursor.get cursor.raw (addr cursor.key)( addr cursor.data) op)
-  ;;
+    raise_on_error ~here:[%here]
+      (C.Cursor.get cursor.raw (addr cursor.key) (addr cursor.data) op)
 
   let first cursor = op0 cursor Lmdb_types.MDB_FIRST
+
   let last cursor = op0 cursor Lmdb_types.MDB_LAST
+
   let next cursor = op0 cursor Lmdb_types.MDB_NEXT
+
   let prev cursor = op0 cursor Lmdb_types.MDB_PREV
+
   let set cursor input =
     let key = Input.raw_addr input in
-    raise_on_error ~here:[%here] (C.Cursor.get cursor.raw key (addr cursor.data) Lmdb_types.MDB_SET)
-  ;;
-
+    raise_on_error ~here:[%here]
+      (C.Cursor.get cursor.raw key (addr cursor.data) Lmdb_types.MDB_SET)
 
   let get_current cursor ~key ~data =
-    op0 cursor Lmdb_types.MDB_GET_CURRENT;
+    op0 cursor Lmdb_types.MDB_GET_CURRENT ;
     let k = Output.copy key cursor.key in
     let d = Output.copy data cursor.data in
-    k,d
+    (k, d)
 
+  let close cursor = C.Cursor.close cursor.raw
 
-  let close cursor = C.Cursor.close (cursor.raw)
   let count cursor =
     let countp = allocate_n size_t ~count:1 in
-    raise_on_error ~here:[%here] (C.Cursor.count cursor.raw countp);
-    (!@ countp) |> Unsigned.Size_t.to_int
-  ;;
-
-
+    raise_on_error ~here:[%here] (C.Cursor.count cursor.raw countp) ;
+    !@countp |> Unsigned.Size_t.to_int
 end

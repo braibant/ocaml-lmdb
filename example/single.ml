@@ -1,5 +1,5 @@
 open Cmdliner
-open! Lmdb.Wrapper
+open! Lmdb_core
 
 module Repl = struct
   let read () = read_line ()
@@ -45,15 +45,16 @@ module Repl = struct
   end
 
   module Eval = struct
-    type t = {env: Env.t; mutable txns: Txn.t list; db: Db.t}
+    type t = {env: Env.t; mutable txns: Txn.t list; db: Dbi.t}
 
     let eval env (e : Expr.t) =
       match e with
       | Read var ->
           let result =
             get (List.hd env.txns) env.db ~key:(Input.of_string var)
+              ~data:(Output.allocate_bytes ~size_limit:None)
           in
-          Stdio.printf "> %s\n" result
+          Stdio.printf "> %s\n" (result |> Bytes.to_string)
       | Write (var, value) ->
           put (List.hd env.txns) env.db ~flags:Unsigned.UInt.zero
             ~key:(Input.of_string var) ~data:(Input.of_string value)
@@ -75,7 +76,7 @@ module Repl = struct
         Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
       in
       let txn = Txn.create env () in
-      let db = Db.create txn in
+      let db = Dbi.create txn in
       {env; txns= [txn]; db}
   end
 
@@ -95,7 +96,7 @@ let write ~key ~value =
     Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
   in
   let txn = Txn.create env () in
-  let db = Db.create txn in
+  let db = Dbi.create txn in
   let () =
     put txn db ~flags:Unsigned.UInt.zero ~key:(Input.of_string key)
       ~data:(Input.of_string value)
@@ -107,8 +108,10 @@ let read ~key =
     Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
   in
   let txn = Txn.create env () in
-  let db = Db.create txn in
-  let result = get txn db ~key:(Input.of_string key) in
+  let db = Dbi.create txn in
+  let result =
+    get txn db ~key:(Input.of_string key) ~data:(Output.allocate_string ~size_limit:None)
+  in
   Txn.commit txn ; Stdio.printf "%s\n" result
 
 let stat () =

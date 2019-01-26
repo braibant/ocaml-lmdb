@@ -2,8 +2,6 @@ module C : sig
   include module type of Lmdb_bindings.C (Lmdb_generated)
 end
 
-
-
 module Stat : sig
   type t =
     { psize: int
@@ -57,7 +55,7 @@ module Txn : sig
   val create : Env.t -> ?parent:t -> ?flags:Unsigned.uint -> unit -> t
 end
 
-module Db : sig
+module Dbi : sig
   (** Named database  *)
   type t
 
@@ -71,40 +69,51 @@ module Input : sig
   (** Copies the content of the string.  *)
 
   val of_int : int -> t
+
   val null : t
 end
 
-module Output  : sig
+module Output : sig
   type 'a t
 
-  val allocate_string : String.t t
-  val allocate_bytes : Bytes.t t
-  val allocate_bigstring : Bigstring.t t
-  val bytes_buffer : ?pos: int -> ?len:int -> Bytes.t -> unit t
-  val bigstring_buffer : ?pos: int -> ?len:int -> Bigstring.t -> unit t
+  val allocate_string : size_limit : int option -> String.t t
+
+  val allocate_bytes : size_limit : int option ->  Bytes.t t
+
+  val allocate_bigstring : size_limit : int option ->  Bigstring.t t
+
+  val in_bytes_buffer : ?pos:int -> ?len:int -> Bytes.t -> unit t
+
+  val in_bigstring_buffer : ?pos:int -> ?len:int -> Bigstring.t -> unit t
 end
 
 val put :
-  Txn.t -> Db.t -> flags:Unsigned.uint -> key:Input.t -> data:Input.t -> unit
+  Txn.t -> Dbi.t -> flags:Unsigned.uint -> key:Input.t -> data:Input.t -> unit
 
-val get : Txn.t -> Db.t -> key:Input.t -> data:'a Output.t -> 'a
+val get : Txn.t -> Dbi.t -> key:Input.t -> data:'a Output.t -> 'a
 
-val delete : Txn.t -> Db.t -> key:Input.t -> data:Input.t -> unit
+val delete : Txn.t -> Dbi.t -> key:Input.t -> data:Input.t -> unit
 
 module Cursor : sig
   type _ t
-  val run : Txn.t -> Db.t -> f:('a t -> 'b) -> 'b
+
+  val run : Txn.t -> Dbi.t -> f:('a t -> 'b) -> 'b
 
   val first : 'a t -> unit
+
   val last : 'a t -> unit
+
   val next : 'a t -> unit
+
   val prev : 'a t -> unit
+
   val set : 'a t -> Input.t -> unit
 
   val close : 'a t -> unit
+
   val count : 'a t -> int
+
   (* val delete : 'a t -> options:unit -> unit *)
 
-  val get_current : 'a t -> key:'a Output.t -> data: 'b Output.t -> 'a * 'b
-
+  val get_current : 'a t -> key:'a Output.t -> data:'b Output.t -> 'a * 'b
 end

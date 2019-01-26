@@ -90,9 +90,9 @@ module C (F : Cstubs.FOREIGN) = struct
 
     (* mdb_env_set_userctx *)
     (* mdb_env_get_userctx *)
-
+    
     (* typedef void MDB_assert_func(MDB_env *env, const char *msg) *)
-
+    
     (* mdb_env_set_assert *)
   end
 
@@ -218,9 +218,8 @@ module C (F : Cstubs.FOREIGN) = struct
         @-> uint (* flags *)
         @-> or_error )
 
-    let del =
-      foreign "mdb_cursor_del" (ptr t @-> uint (* flags *)
-                                 @-> or_error)
+    let del = foreign "mdb_cursor_del" (ptr t @-> uint (* flags *)
+                                      @-> or_error)
 
     let count =
       foreign "mdb_cursor_count" (ptr t @-> ptr size_t (* countp *)

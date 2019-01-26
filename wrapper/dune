@@ -1,15 +1,15 @@
 (library
-  (name lmdb)
+  (name lmdb_core)
   (c_names lmdb_stubs)
+  (c_flags (:include c_flags.sexp))
   (c_library_flags  :standard (:include c_library_flags.sexp) -llmdb)
-  (no_dynlink)
   (modes native)
   (preprocess (pps ppx_here ppx_jane))
   (libraries base bigarray bigstring lmdb_types ctypes.foreign ctypes.stubs ctypes))
 
 
 (rule
-  (targets c_library_flags.sexp)
+  (targets c_library_flags.sexp c_flags.sexp)
   (deps    (:discover ../config/discover.exe))
   (action  (run %{discover})))
 

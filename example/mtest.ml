@@ -1,6 +1,13 @@
 open Base
 open Stdio
-open! Lmdb.Wrapper
+open! Lmdb_core
+
+let print_current_cursor cursor =
+  let key, data =
+    Cursor.get_current cursor ~key:(Output.allocate_string ~size_limit:None)
+      ~data:(Output.allocate_string ~size_limit:None)
+  in
+  printf "key: %s, data: %s\n" key data
 
 let main () =
   let count = Random.int 384 + 64 in
@@ -11,7 +18,7 @@ let main () =
       ~mode:0o664 db
   in
   let txn = Txn.create env () in
-  let dbi = Db.create txn in
+  let dbi = Dbi.create txn in
   let stats = Env.stat env in
   printf !"%{sexp: Stat.t}\n" stats ;
   printf "Adding %i values\n" count ;
@@ -32,12 +39,7 @@ let main () =
   let txn = Txn.create env ~flags:Lmdb_types._MDB_RDONLY () in
   Cursor.run txn dbi ~f:(fun cursor ->
       while try Cursor.next cursor ; true with _ -> false do
-        let key, data =
-          Cursor.get_current cursor ~key:Cursor.Output.Allocate_bytes
-            ~data:Cursor.Output.Allocate_bytes
-        in
-        printf "key: %s, data: %s\n" (Bytes.to_string key)
-          (Bytes.to_string data)
+        print_current_cursor cursor
       done ) ;
   Txn.abort txn ;
   let i = ref (count - 1) in
@@ -54,7 +56,25 @@ let main () =
   done ;
   printf "Deleted %d values\n" !j ;
   let stats = Env.stat env in
-  printf !"%{sexp: Stat.t}\n" stats
+  printf !"%{sexp: Stat.t}\n" stats ;
+  let txn = Txn.create env ~flags:Lmdb_types._MDB_RDONLY () in
+  Cursor.run txn dbi ~f:(fun cursor ->
+      while try Cursor.next cursor ; true with _ -> false do
+        print_current_cursor cursor
+      done ;
+      printf "Cursor last\n" ;
+      Cursor.last cursor ;
+      print_current_cursor cursor ;
+      printf "Cursor prev\n" ;
+      while try Cursor.prev cursor ; true with _ -> false do
+        print_current_cursor cursor
+      done ;
+      printf "Cursor last/prev\n" ;
+      Cursor.last cursor ;
+      print_current_cursor cursor ;
+      Cursor.prev cursor ;
+      print_current_cursor cursor ) ;
+  Txn.abort txn
 
 ;;
 main ()
