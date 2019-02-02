@@ -2,6 +2,20 @@ module C : sig
   include module type of Lmdb_bindings.C (Lmdb_generated)
 end
 
+(** [Not_enough_capacity n] is raised when the allocated output is too small.
+   [n] is the required size. *)
+exception Not_enough_capacity of int
+
+module type Flags = sig
+  type t
+
+  val equal : t -> t -> bool
+
+  val ( + ) : t -> t -> t
+
+  val none : t
+end
+
 module Stat : sig
   type t =
     { psize: int
@@ -14,6 +28,40 @@ module Stat : sig
 end
 
 module Env : sig
+  module Flags : sig
+    include Flags
+
+    val nosubdir : t
+    (** no environment directory *)
+
+    val nosync : t
+    (** don't fsync after commit *)
+
+    val rdonly : t
+    (** read only *)
+
+    val nometasync : t
+    (** don't fsync metapage after commit *)
+
+    val writemap : t
+    (** use writable mmap *)
+
+    val mapasync : t
+    (** use asynchronous msync when #MDB_WRITEMAP is used *)
+
+    val notls : t
+    (** tie reader locktable slots to #MDB_txn objects instead of to threads *)
+
+    val nolock : t
+    (** don't do any locking, caller must manage their own locks *)
+
+    val nordahead : t
+    (** don't do readahead (no effect on Windows) *)
+
+    val nomeminit : t
+    (** don't initialize malloc'd memory before writing to datafile *)
+  end
+
   type t
 
   val create :
@@ -30,7 +78,7 @@ module Env : sig
        function is only needed if multiple databases will be used in the
        environment. Simpler applications that use the environment as a single
        unnamed database can ignore this option.*)
-    -> ?flags:Unsigned.uint
+    -> ?flags:Flags.t
     -> ?mode:int
        (** The UNIX permissions to set on created files and semaphores. *)
     -> string
@@ -76,11 +124,11 @@ end
 module Output : sig
   type 'a t
 
-  val allocate_string : size_limit : int option -> String.t t
+  val allocate_string : size_limit:int option -> String.t t
 
-  val allocate_bytes : size_limit : int option ->  Bytes.t t
+  val allocate_bytes : size_limit:int option -> Bytes.t t
 
-  val allocate_bigstring : size_limit : int option ->  Bigstring.t t
+  val allocate_bigstring : size_limit:int option -> Bigstring.t t
 
   val in_bytes_buffer : ?pos:int -> ?len:int -> Bytes.t -> unit t
 

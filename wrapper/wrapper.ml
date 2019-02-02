@@ -16,6 +16,26 @@ let raise_if_already_freed freed name =
 
 let _is_error i = i <> 0
 
+module type Flags = sig
+  type t
+
+  val equal : t -> t -> bool
+
+  val ( + ) : t -> t -> t
+
+  val none : t
+end
+
+module UIntFlags = struct
+  type t = Unsigned.UInt.t
+
+  let equal a b = Unsigned.UInt.compare a b = 0
+
+  let ( + ) = Unsigned.UInt.logor
+
+  let none = Unsigned.UInt.zero
+end
+
 module Stat = struct
   type t =
     { psize: int
@@ -39,6 +59,33 @@ module Stat = struct
 end
 
 module Env = struct
+  module Flags = struct
+    open Lmdb_types
+    include UIntFlags
+
+    (* let fixedmap = _MDB_FIXEDMAP *)
+
+    let nosubdir = _MDB_NOSUBDIR
+
+    let nosync = _MDB_NOSYNC
+
+    let rdonly = _MDB_RDONLY
+
+    let nometasync = _MDB_NOMETASYNC
+
+    let writemap = _MDB_WRITEMAP
+
+    let mapasync = _MDB_MAPASYNC
+
+    let notls = _MDB_NOTLS
+
+    let nolock = _MDB_NOLOCK
+
+    let nordahead = _MDB_NORDAHEAD
+
+    let nomeminit = _MDB_NOMEMINIT
+  end
+
   type t = {raw: Lmdb_types.Env.t ptr}
 
   let raw t = t.raw
@@ -172,7 +219,6 @@ module Output = struct
     | Write_to_bytes : {buffer: Bytes.t; pos: int; len: int} -> unit t
     | Write_to_bigstring : {buffer: Bigstring.t; pos: int; len: int} -> unit t
 
-
   let allocate_bytes ~size_limit = Allocate_bytes {size_limit}
 
   let allocate_string ~size_limit = Allocate_string {size_limit}
@@ -205,16 +251,16 @@ module Output = struct
 
   let copy (type a) (t : a t) v : a =
     let len = Ctypes.getf v C.Val.mv_size |> Unsigned.Size_t.to_int in
-    if not (has_capacity t len) then raise (Not_enough_capacity len);
+    if not (has_capacity t len) then raise (Not_enough_capacity len) ;
     let base = Ctypes.getf v C.Val.mv_data |> Ctypes.from_voidp char in
     match t with
-    | Allocate_bytes {size_limit = _} ->
+    | Allocate_bytes {size_limit= _} ->
         let r = Bytes.create len in
         for i = 0 to len - 1 do
           Bytes.set r i Ctypes.(!@(base +@ i))
         done ;
         r
-    | Allocate_string {size_limit = _} ->
+    | Allocate_string {size_limit= _} ->
         let r = Bytes.create len in
         for i = 0 to len - 1 do
           Bytes.set r i Ctypes.(!@(base +@ i))
