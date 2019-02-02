@@ -160,6 +160,25 @@ let char_array_of_string s =
   p
 
 module Dbi = struct
+  module Flags = struct
+    include UIntFlags
+    open Lmdb_types
+
+    let reversekey = _MDB_REVERSEKEY
+
+    let dupsort = _MDB_DUPSORT
+
+    let integerkey = _MDB_INTEGERKEY
+
+    let dupfixed = _MDB_DUPFIXED
+
+    let integerdup = _MDB_INTEGERDUP
+
+    let reversedup = _MDB_REVERSEDUP
+
+    let create = _MDB_CREATE
+  end
+
   type t = {raw: C.Dbi.t; mutable closed: bool}
 
   let create ?name ?(flags = Unsigned.UInt.zero) txn =

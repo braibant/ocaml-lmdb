@@ -104,10 +104,36 @@ module Txn : sig
 end
 
 module Dbi : sig
+
+  module Flags : sig
+    include Flags
+    (** use reverse string keys *)
+    val reversekey : t
+
+    (** use sorted duplicates *)
+    val dupsort : t
+
+    (** numeric keys in native byte order: either unsigned int or size_t. The
+       keys must all be of the same size. *)
+    val integerkey : t
+
+    (** with #MDB_DUPSORT, sorted dup items have fixed size *)
+    val dupfixed : t
+
+    (** with #MDB_DUPSORT, dups are #MDB_INTEGERKEY-style integers *)
+    val integerdup : t
+
+    (** with #MDB_DUPSORT, use reverse string dups *)
+    val reversedup : t
+
+    (** create DB if not already existing *)
+    val create : t
+
+  end
   (** Named database  *)
   type t
 
-  val create : ?name:string -> ?flags:Unsigned.uint -> Txn.t -> t
+  val create : ?name:string -> ?flags:Flags.t-> Txn.t -> t
 end
 
 module Input : sig
