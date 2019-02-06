@@ -4,7 +4,8 @@ open! Lmdb_core
 
 let print_current_cursor cursor =
   let key, data =
-    Cursor.get_current cursor ~key:(Output.allocate_string ~size_limit:None)
+    Cursor.get_current cursor
+      ~key:(Output.allocate_string ~size_limit:None)
       ~data:(Output.allocate_string ~size_limit:None)
   in
   printf "key: %s, data: %s\n" key data
@@ -14,7 +15,7 @@ let main () =
   let values = Array.init count ~f:(fun _i -> Random.int 1024) in
   let db = Sys.argv.(1) in
   let env =
-    Env.create ~maxreaders:1 ~mapsize:10485760 ~flags:Lmdb_types._MDB_FIXEDMAP
+    Env.create ~maxreaders:1 ~mapsize:10485760 ~flags:Env.Flags.fixedmap
       ~mode:0o664 db
   in
   let txn = Txn.create env () in

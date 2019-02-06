@@ -72,9 +72,7 @@ module Repl = struct
       | Nop -> Stdio.printf ""
 
     let create () =
-      let env =
-        Env.create ~flags:(Unsigned.UInt.of_int 0) ~mode:0o664 "/tmp/testdb"
-      in
+      let env = Env.create ~flags:Env.Flags.none ~mode:0o664 "/tmp/testdb" in
       let txn = Txn.create env () in
       let db = Dbi.create txn in
       {env; txns= [txn]; db}
@@ -110,7 +108,8 @@ let read ~key =
   let txn = Txn.create env () in
   let db = Dbi.create txn in
   let result =
-    get txn db ~key:(Input.of_string key) ~data:(Output.allocate_string ~size_limit:None)
+    get txn db ~key:(Input.of_string key)
+      ~data:(Output.allocate_string ~size_limit:None)
   in
   Txn.commit txn ; Stdio.printf "%s\n" result
 

@@ -31,6 +31,10 @@ module Env : sig
   module Flags : sig
     include Flags
 
+    val fixedmap : t
+    (** mmap at a fixed address (experimental) *)
+
+
     val nosubdir : t
     (** no environment directory *)
 
@@ -90,9 +94,10 @@ module Env : sig
 end
 
 module Txn : sig
+  module Flags : sig include Flags val rdonly : t end
   type t
 
-  val commit : t -> unit
+  val commit :t -> unit
 
   val abort : t -> unit
 
@@ -100,7 +105,7 @@ module Txn : sig
 
   val renew : t -> unit
 
-  val create : Env.t -> ?parent:t -> ?flags:Unsigned.uint -> unit -> t
+  val create : Env.t ->  ?parent:t -> ?flags:Flags.t -> unit -> t
 end
 
 module Dbi : sig

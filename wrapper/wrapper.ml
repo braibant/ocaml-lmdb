@@ -63,7 +63,7 @@ module Env = struct
     open Lmdb_types
     include UIntFlags
 
-    (* let fixedmap = _MDB_FIXEDMAP *)
+    let fixedmap = _MDB_FIXEDMAP
 
     let nosubdir = _MDB_NOSUBDIR
 
@@ -117,7 +117,17 @@ module Env = struct
 end
 
 module Txn = struct
-  type t = {raw: C.Txn.t ptr; mutable freed: bool}
+  module Flags = struct
+    include UIntFlags
+    open Lmdb_types
+
+    let rdonly = _MDB_RDONLY
+  end
+
+  (* Maybe explore http://kcsrk.info/ocaml/types/2016/06/30/behavioural-types/
+     for more type safety. *)
+
+  type t = {raw: C.Txn.t ptr; mutable freed: bool} constraint 'a = [> ]
 
   let raw t = t.raw
 
