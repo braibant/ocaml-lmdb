@@ -34,7 +34,6 @@ module Env : sig
     val fixedmap : t
     (** mmap at a fixed address (experimental) *)
 
-
     val nosubdir : t
     (** no environment directory *)
 
@@ -94,10 +93,15 @@ module Env : sig
 end
 
 module Txn : sig
-  module Flags : sig include Flags val rdonly : t end
+  module Flags : sig
+    include Flags
+
+    val rdonly : t
+  end
+
   type t
 
-  val commit :t -> unit
+  val commit : t -> unit
 
   val abort : t -> unit
 
@@ -105,40 +109,40 @@ module Txn : sig
 
   val renew : t -> unit
 
-  val create : Env.t ->  ?parent:t -> ?flags:Flags.t -> unit -> t
+  val create : Env.t -> ?parent:t -> ?flags:Flags.t -> unit -> t
 end
 
 module Dbi : sig
-
   module Flags : sig
     include Flags
-    (** use reverse string keys *)
+
     val reversekey : t
+    (** use reverse string keys *)
 
-    (** use sorted duplicates *)
     val dupsort : t
+    (** use sorted duplicates *)
 
+    val integerkey : t
     (** numeric keys in native byte order: either unsigned int or size_t. The
        keys must all be of the same size. *)
-    val integerkey : t
 
-    (** with #MDB_DUPSORT, sorted dup items have fixed size *)
     val dupfixed : t
+    (** with #MDB_DUPSORT, sorted dup items have fixed size *)
 
-    (** with #MDB_DUPSORT, dups are #MDB_INTEGERKEY-style integers *)
     val integerdup : t
+    (** with #MDB_DUPSORT, dups are #MDB_INTEGERKEY-style integers *)
 
-    (** with #MDB_DUPSORT, use reverse string dups *)
     val reversedup : t
+    (** with #MDB_DUPSORT, use reverse string dups *)
 
-    (** create DB if not already existing *)
     val create : t
-
+    (** create DB if not already existing *)
   end
+
   (** Named database  *)
   type t
 
-  val create : ?name:string -> ?flags:Flags.t-> Txn.t -> t
+  val create : ?name:string -> ?flags:Flags.t -> Txn.t -> t
 end
 
 module Input : sig
@@ -178,13 +182,13 @@ module Cursor : sig
 
   val run : Txn.t -> Dbi.t -> f:('a t -> 'b) -> 'b
 
-  val first : 'a t -> unit
+  val first : 'a t -> (unit, [`NOTFOUND]) result
 
-  val last : 'a t -> unit
+  val last : 'a t -> (unit, [`NOTFOUND]) result
 
-  val next : 'a t -> unit
+  val next : 'a t -> (unit, [`NOTFOUND]) result
 
-  val prev : 'a t -> unit
+  val prev : 'a t -> (unit, [`NOTFOUND]) result
 
   val set : 'a t -> Input.t -> unit
 
@@ -195,4 +199,14 @@ module Cursor : sig
   (* val delete : 'a t -> options:unit -> unit *)
 
   val get_current : 'a t -> key:'a Output.t -> data:'b Output.t -> 'a * 'b
+
+  (** An high-level iterator  *)
+  val fold :
+       Txn.t
+    -> Dbi.t
+    -> key:'k Output.t
+    -> data:'v Output.t
+    -> init:'a
+    -> f:(key:'k -> data:'v -> 'a -> 'a)
+    -> 'a
 end

@@ -7,6 +7,10 @@ exception Error of string * string
 
 exception Not_enough_capacity of int
 
+let raise_error ~here i =
+  assert (i <> 0) ;
+  raise (Error (C.mdb_strerror i, Base.Source_code_position.to_string here))
+
 let raise_on_error ~here i =
   if i <> 0 then
     raise (Error (C.mdb_strerror i, Base.Source_code_position.to_string here))
@@ -327,6 +331,13 @@ let delete txn db ~key ~data =
     (C.del (Txn.raw txn) (Dbi.raw db) (Input.raw_addr key)
        (Input.raw_addr data))
 
+let expect ~l ~here result =
+  if result = 0 then Ok ()
+  else
+    match List.Assoc.find l ~equal:Int.equal result with
+    | Some error_code -> Error error_code
+    | None -> raise_error ~here result
+
 module Cursor = struct
   type _ t = {raw: C.Cursor.t ptr; key: C.Val.t; data: C.Val.t}
 
@@ -340,17 +351,23 @@ module Cursor = struct
     let result = f {raw; key; data} in
     C.Cursor.close raw ; result
 
-  let op0 cursor op =
-    raise_on_error ~here:[%here]
+  let retrieve_or_error cursor op =
+    expect
+      ~l:Lmdb_types.[(_MDB_NOTFOUND, `NOTFOUND)]
+      ~here:[%here]
       (C.Cursor.get cursor.raw (addr cursor.key) (addr cursor.data) op)
 
-  let first cursor = op0 cursor Lmdb_types.MDB_FIRST
+  let retrieve_exn ~here cursor op =
+    raise_on_error ~here
+      (C.Cursor.get cursor.raw (addr cursor.key) (addr cursor.data) op)
 
-  let last cursor = op0 cursor Lmdb_types.MDB_LAST
+  let first cursor = retrieve_or_error cursor Lmdb_types.MDB_FIRST
 
-  let next cursor = op0 cursor Lmdb_types.MDB_NEXT
+  let last cursor = retrieve_or_error cursor Lmdb_types.MDB_LAST
 
-  let prev cursor = op0 cursor Lmdb_types.MDB_PREV
+  let next cursor = retrieve_or_error cursor Lmdb_types.MDB_NEXT
+
+  let prev cursor = retrieve_or_error cursor Lmdb_types.MDB_PREV
 
   let set cursor input =
     let key = Input.raw_addr input in
@@ -358,7 +375,7 @@ module Cursor = struct
       (C.Cursor.get cursor.raw key (addr cursor.data) Lmdb_types.MDB_SET)
 
   let get_current cursor ~key ~data =
-    op0 cursor Lmdb_types.MDB_GET_CURRENT ;
+    let () = retrieve_exn ~here:[%here] cursor Lmdb_types.MDB_GET_CURRENT in
     let k = Output.copy key cursor.key in
     let d = Output.copy data cursor.data in
     (k, d)
@@ -369,4 +386,18 @@ module Cursor = struct
     let countp = allocate_n size_t ~count:1 in
     raise_on_error ~here:[%here] (C.Cursor.count cursor.raw countp) ;
     !@countp |> Unsigned.Size_t.to_int
+
+  let fold txn dbi ~key ~data ~init ~f =
+    run txn dbi ~f:(fun cursor ->
+        match first cursor with
+        | Error `NOTFOUND -> init
+        | Ok () ->
+            let rec inner acc =
+              let key, data = get_current cursor ~key ~data in
+              let acc = f ~key ~data acc in
+              match next cursor with
+              | Error `NOTFOUND -> acc
+              | Ok () -> inner acc
+            in
+            inner init )
 end

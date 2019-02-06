@@ -3,19 +3,13 @@ open! Ctypes
 module C (C : Cstubs.Types.TYPE) = struct
   open C
 
-  module Helpers = struct
-    let int x = C.constant x C.uint
-  end
+  let _MDB_VERSION_MAJOR = constant "MDB_VERSION_MAJOR" uint
 
-  open Helpers
+  let _MDB_VERSION_MINOR = constant "MDB_VERSION_MINOR" uint
 
-  let _MDB_VERSION_MAJOR = int "MDB_VERSION_MAJOR"
+  let _MDB_VERSION_PATCH = constant "MDB_VERSION_PATCH" uint
 
-  let _MDB_VERSION_MINOR = int "MDB_VERSION_MINOR"
-
-  let _MDB_VERSION_PATCH = int "MDB_VERSION_PATCH"
-
-  let _MDB_VERSION_FULL = int "MDB_VERSION_FULL"
+  let _MDB_VERSION_FULL = constant "MDB_VERSION_FULL" uint
 
   (* let _MDB_VERSION_DATE = C.constant "MDB_VERSION_DATE" C.(ptr char)
    *
@@ -95,97 +89,97 @@ module C (C : Cstubs.Types.TYPE) = struct
   (** Env flags  *)
 
   (** mmap at a fixed address (experimental) *)
-  let _MDB_FIXEDMAP = int "MDB_FIXEDMAP"
+  let _MDB_FIXEDMAP = constant "MDB_FIXEDMAP" uint
 
   (** no environment directory *)
-  let _MDB_NOSUBDIR = int "MDB_NOSUBDIR"
+  let _MDB_NOSUBDIR = constant "MDB_NOSUBDIR" uint
 
   (** don't fsync after commit *)
-  let _MDB_NOSYNC = int "MDB_NOSYNC"
+  let _MDB_NOSYNC = constant "MDB_NOSYNC" uint
 
   (** read only *)
-  let _MDB_RDONLY = int "MDB_RDONLY"
+  let _MDB_RDONLY = constant "MDB_RDONLY" uint
 
   (** don't fsync metapage after commit *)
-  let _MDB_NOMETASYNC = int "MDB_NOMETASYNC"
+  let _MDB_NOMETASYNC = constant "MDB_NOMETASYNC" uint
 
   (** use writable mmap *)
-  let _MDB_WRITEMAP = int "MDB_WRITEMAP"
+  let _MDB_WRITEMAP = constant "MDB_WRITEMAP" uint
 
   (** use asynchronous msync when #MDB_WRITEMAP is used *)
-  let _MDB_MAPASYNC = int "MDB_MAPASYNC"
+  let _MDB_MAPASYNC = constant "MDB_MAPASYNC" uint
 
   (** tie reader locktable slots to #MDB_txn objects instead of to threads *)
-  let _MDB_NOTLS = int "MDB_NOTLS"
+  let _MDB_NOTLS = constant "MDB_NOTLS" uint
 
   (** don't do any locking, caller must manage their own locks *)
-  let _MDB_NOLOCK = int "MDB_NOLOCK"
+  let _MDB_NOLOCK = constant "MDB_NOLOCK" uint
 
   (** don't do readahead (no effect on Windows) *)
-  let _MDB_NORDAHEAD = int "MDB_NORDAHEAD"
+  let _MDB_NORDAHEAD = constant "MDB_NORDAHEAD" uint
 
   (** don't initialize malloc'd memory before writing to datafile *)
-  let _MDB_NOMEMINIT = int "MDB_NOMEMINIT"
+  let _MDB_NOMEMINIT = constant "MDB_NOMEMINIT" uint
 
   (* Database flags *)
 
   (** use reverse string keys *)
-  let _MDB_REVERSEKEY = int "MDB_REVERSEKEY"
+  let _MDB_REVERSEKEY = constant "MDB_REVERSEKEY" uint
 
   (** use sorted duplicates *)
-  let _MDB_DUPSORT = int "MDB_DUPSORT"
+  let _MDB_DUPSORT = constant "MDB_DUPSORT" uint
 
   (** numeric keys in native byte order: either unsigned int or size_t.
 *  The keys must all be of the same size. *)
-  let _MDB_INTEGERKEY = int "MDB_INTEGERKEY"
+  let _MDB_INTEGERKEY = constant "MDB_INTEGERKEY" uint
 
   (** with #MDB_DUPSORT, sorted dup items have fixed size *)
-  let _MDB_DUPFIXED = int "MDB_DUPFIXED"
+  let _MDB_DUPFIXED = constant "MDB_DUPFIXED" uint
 
   (** with #MDB_DUPSORT, dups are #MDB_INTEGERKEY-style integers *)
-  let _MDB_INTEGERDUP = int "MDB_INTEGERDUP"
+  let _MDB_INTEGERDUP = constant "MDB_INTEGERDUP" uint
 
   (** with #MDB_DUPSORT, use reverse string dups *)
-  let _MDB_REVERSEDUP = int "MDB_REVERSEDUP"
+  let _MDB_REVERSEDUP = constant "MDB_REVERSEDUP" uint
 
   (** create DB if not already existing *)
-  let _MDB_CREATE = int "MDB_CREATE"
+  let _MDB_CREATE = constant "MDB_CREATE" uint
 
   (* mdb_put	Write Flags *)
 
   (** For put: Don't write if the key already exists. *)
-  let _MDB_NOOVERWRITE = int "MDB_NOOVERWRITE"
+  let _MDB_NOOVERWRITE = constant "MDB_NOOVERWRITE" uint
 
   (** Only for #MDB_DUPSORT<br>
   For put: don't write if the key and data pair already exist.<br>
   For mdb_cursor_del: remove all duplicate data items.
  *)
-  let _MDB_NODUPDATA = int "MDB_NODUPDATA"
+  let _MDB_NODUPDATA = constant "MDB_NODUPDATA" uint
 
   (** For mdb_cursor_put: overwrite the current key/data pair *)
-  let _MDB_CURRENT = int "MDB_CURRENT"
+  let _MDB_CURRENT = constant "MDB_CURRENT" uint
 
   (** For put: Just reserve space for data, don't copy it. Return a
   pointer to the reserved space.
 *)
 
-  let _MDB_RESERVE = int "MDB_RESERVE"
+  let _MDB_RESERVE = constant "MDB_RESERVE" uint
 
   (** Data is being appended, don't split full pages. *)
-  let _MDB_APPEND = int "MDB_APPEND"
+  let _MDB_APPEND = constant "MDB_APPEND" uint
 
   (** Duplicate data is being appended, don't split full pages. *)
-  let _MDB_APPENDDUP = int "MDB_APPENDDUP"
+  let _MDB_APPENDDUP = constant "MDB_APPENDDUP" uint
 
   (** Store multiple data items in one call. Only for #MDB_DUPFIXED. *)
-  let _MDB_MULTIPLE = int "MDB_MULTIPLE"
+  let _MDB_MULTIPLE = constant "MDB_MULTIPLE" uint
 
   (*	mdb_copy	Copy Flags *)
 
   (** Compacting copy: Omit free space from copy, and renumber all
   pages sequentially.
  *)
-  let _MDB_CP_COMPACT = int "MDB_CP_COMPACT"
+  let _MDB_CP_COMPACT = constant "MDB_CP_COMPACT" uint
 
   (** Cursor Get operations.
 
@@ -256,8 +250,13 @@ module C (C : Cstubs.Types.TYPE) = struct
       ; (MDB_PREV_MULTIPLE, constant "MDB_PREV_MULTIPLE" int64_t) ]
 
   (*
-/** @defgroup  errors	Return Codes
- *
+  errors	Return Codes *)
+
+  let _MDB_KEYEXIST = constant "MDB_KEYEXIST" int
+
+  let _MDB_NOTFOUND = constant "MDB_NOTFOUND" int
+
+  (*
  *	BerkeleyDB uses -30800 to -30999, we'll go under them
  *	@{
  */
@@ -313,7 +312,7 @@ module C (C : Cstubs.Types.TYPE) = struct
 /** The last defined error code */
 #define MDB_LAST_ERRCODE	MDB_BAD_DBI
 /** @} */
- *)
+ **)
   module Stat = struct
     type t
 
